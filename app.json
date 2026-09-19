@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "PheleCheck",
+    "slug": "phelecheck",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "phelecheck",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.phelecheck.app"
+    },
+    "android": {
+      "package": "com.phelecheck.app",
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow PheleCheck to access screenshots you choose for fraud-risk analysis.",
+          "cameraPermission": "Allow PheleCheck to use the camera for scanning suspicious content."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
