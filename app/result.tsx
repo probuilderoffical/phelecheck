@@ -9,6 +9,7 @@ import { analyzeWithSentinel } from "@/services/sentinel";
 import type { RiskAnalysis } from "@/services/riskEngine";
 import { saveHistoryItem } from "@/services/history";
 import { rememberAnalysis } from "@/services/memory";
+import { supabase } from "@/lib/supabase";
 
 function severityColor(severity: "info" | "warning" | "danger", c: any) {
   if (severity === "danger") return c.danger;
@@ -42,6 +43,17 @@ export default function ResultScreen() {
         });
       }
       if (preferences.memoryEnabled) await rememberAnalysis(result, preferences.language);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await supabase.functions.invoke("record-check", {
+          body: {
+            inputType: type ?? "message",
+            inputPreview: text.slice(0, 220),
+            analysis: result
+          }
+        });
+      }
     })();
     return () => { active = false; };
   }, [sample, type, preferences.language, preferences.memoryEnabled, preferences.saveHistory]);
