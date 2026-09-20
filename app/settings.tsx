@@ -74,7 +74,7 @@ export default function SettingsScreen(){
 
       <Section title="PHELECHECK AI" c={c}>
         <Row icon="hardware-chip-outline" label="AI model" value="Sentinel-1" c={c}/>
-        <Row icon="pulse-outline" label="Model status" value="Local fallback ready" c={c}/>
+        <Row icon="pulse-outline" label="Model status" value="Cloud AI + local fallback" c={c}/>
         <Row icon="information-circle-outline" label="How risk scores work" c={c}/>
       </Section>
 
@@ -86,7 +86,7 @@ export default function SettingsScreen(){
       </Section>
 
       <Pressable onPress={resetPreferences} style={styles.reset}><Text style={[styles.resetText,{color:c.textMuted}]}>Reset settings to defaults</Text></Pressable>
-      <Text style={[styles.version,{color:c.textMuted}]}>PheleCheck 1.0.0 • Sentinel-1</Text>
+      <Text style={[styles.version,{color:c.textMuted}]}>PheleCheck 1.1.0 • Sentinel-1</Text>
     </ScrollView>
     <BottomNav active="settings"/>
   </SafeAreaView>;
