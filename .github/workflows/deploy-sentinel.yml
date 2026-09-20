@@ -1,0 +1,54 @@
+name: Deploy Sentinel-1 to Modal
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "ai/sentinel-1/modal_app.py"
+      - ".github/workflows/deploy-sentinel.yml"
+
+concurrency:
+  group: phelecheck-sentinel-modal
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+
+    steps:
+      - name: Checkout PheleCheck
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Modal
+        run: |
+          python -m pip install --upgrade pip
+          pip install modal
+
+      - name: Verify Modal credentials
+        run: modal token info
+
+      - name: Deploy PheleCheck Sentinel-1
+        shell: bash
+        run: |
+          set -o pipefail
+          modal deploy ai/sentinel-1/modal_app.py --name phelecheck-sentinel-1 2>&1 | tee modal-deploy.log
+
+      - name: Upload deployment log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sentinel-modal-deploy-log
+          path: modal-deploy.log
+          if-no-files-found: ignore
