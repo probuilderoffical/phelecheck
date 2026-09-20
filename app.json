@@ -2,16 +2,18 @@
   "expo": {
     "name": "PheleCheck",
     "slug": "phelecheck",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "scheme": "phelecheck",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.phelecheck.app"
+      "bundleIdentifier": "com.phelecheck.app",
+      "buildNumber": "2"
     },
     "android": {
-      "package": "com.phelecheck.app"
+      "package": "com.phelecheck.app",
+      "versionCode": 2
     },
     "plugins": [
       "expo-router",
