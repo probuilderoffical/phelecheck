@@ -6,6 +6,8 @@ import { BottomNav } from "@/components/BottomNav";
 import { useAppPreferences, useAppTheme } from "@/providers/AppPreferences";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import { clearHistory } from "@/services/history";
+import { clearMemory } from "@/services/memory";
 import { radius, spacing } from "@/theme";
 
 function Section({ title, children, c }: any) {
@@ -37,7 +39,7 @@ export default function SettingsScreen(){
   return <SafeAreaView style={[styles.safe,{backgroundColor:c.background}]} edges={["top","left","right"]}>
     <View style={styles.header}><Text style={[styles.title,{color:c.text}]}>Settings</Text></View>
     <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-      <Pressable onPress={()=>user?null:router.push("/auth")} style={[styles.profile,{backgroundColor:c.surface,borderColor:c.border}]}>
+      <Pressable onPress={()=>router.push(user?"/account":"/auth")} style={[styles.profile,{backgroundColor:c.surface,borderColor:c.border}]}>
         <View style={[styles.avatar,{backgroundColor:c.surfaceMuted}]}><Ionicons name="person-outline" size={25} color={c.text}/></View>
         <View style={{flex:1}}>
           <Text style={[styles.profileTitle,{color:c.text}]}>{user?.email ?? "Create or sign in"}</Text>
@@ -64,8 +66,8 @@ export default function SettingsScreen(){
           const next=preferences.uploadRetention==="24h"?"immediate":preferences.uploadRetention==="immediate"?"7d":"24h";
           setPreference("uploadRetention",next);
         }} c={c}/>
-        <Row icon="trash-outline" label="Clear local history" onPress={()=>Alert.alert("Clear history","This will remove saved checks from this device. Your account will not be deleted.")} c={c}/>
-        <Row icon="hardware-chip-outline" label="Clear memory" onPress={()=>Alert.alert("Clear memory","This will remove locally remembered risk context. Your account settings stay unchanged.")} c={c}/>
+        <Row icon="trash-outline" label="Clear local history" onPress={()=>Alert.alert("Clear history","Remove all saved checks from this device?",[{text:"Cancel",style:"cancel"},{text:"Clear",style:"destructive",onPress:()=>clearHistory()}])} c={c}/>
+        <Row icon="hardware-chip-outline" label="Clear memory" onPress={()=>Alert.alert("Clear memory","Remove all locally remembered risk context?",[{text:"Cancel",style:"cancel"},{text:"Clear",style:"destructive",onPress:()=>clearMemory()}])} c={c}/>
         <Row icon="download-outline" label="Export my data" c={c}/>
         <Row icon="shield-checkmark-outline" label="Privacy & security" c={c}/>
       </Section>
