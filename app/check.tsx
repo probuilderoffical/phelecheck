@@ -2,10 +2,11 @@ import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from "react-native";
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radius, spacing } from "@/theme";
+import { radius, spacing } from "@/theme";
+import { useAppTheme } from "@/providers/AppPreferences";
 
 function titleFor(type?: string) {
   switch (type) {
@@ -20,8 +21,7 @@ function titleFor(type?: string) {
 
 export default function CheckScreen() {
   const { type } = useLocalSearchParams<{ type?: string }>();
-  const scheme = useColorScheme() === "dark" ? "dark" : "light";
-  const c = colors[scheme];
+  const { scheme, colors: c } = useAppTheme();
   const [text, setText] = useState("");
   const [imageUri, setImageUri] = useState<string | null>(null);
   const isImage = type === "screenshot" || type === "qr";
