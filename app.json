@@ -6,14 +6,12 @@
     "orientation": "portrait",
     "scheme": "phelecheck",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.phelecheck.app"
     },
     "android": {
-      "package": "com.phelecheck.app",
-      "edgeToEdgeEnabled": true
+      "package": "com.phelecheck.app"
     },
     "plugins": [
       "expo-router",
