@@ -52,13 +52,13 @@ If evidence is insufficient, use unknown or caution rather than guessing.
 
 def _extract_json(text: str) -> dict:
     text = text.strip()
-    if text.startswith("\`\`\`"):
-        text = re.sub(r"^\`\`\`(?:json)?\\s*", "", text)
-        text = re.sub(r"\\s*\`\`\`$", "", text)
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\\s*", "", text)
+        text = re.sub(r"\\s*```$", "", text)
     try:
         return json.loads(text)
     except Exception:
-        match = re.search(r"\\{[\\s\\S]*\\}", text)
+        match = re.search(r"\{[\s\S]*\}", text)
         if not match:
             raise
         return json.loads(match.group(0))
@@ -76,14 +76,14 @@ class SentinelModel:
     @modal.enter()
     def load(self):
         import torch
-        from transformers import AutoModelForMultimodalLM, AutoProcessor
+        from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
 
         self.torch = torch
         self.processor = AutoProcessor.from_pretrained(MODEL_ID)
-        self.model = AutoModelForMultimodalLM.from_pretrained(
+        self.model = Qwen3VLForConditionalGeneration.from_pretrained(
             MODEL_ID,
             dtype=torch.float16,
-            device_map="cuda",
+            device_map="auto",
             attn_implementation="sdpa",
         )
         self.model.eval()
