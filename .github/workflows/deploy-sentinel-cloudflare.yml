@@ -1,0 +1,33 @@
+name: Deploy Sentinel-1 to Cloudflare
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "cloudflare/sentinel-worker/**"
+      - ".github/workflows/deploy-sentinel-cloudflare.yml"
+
+concurrency:
+  group: phelecheck-sentinel-cloudflare
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout PheleCheck
+        uses: actions/checkout@v6
+
+      - name: Deploy Sentinel-1 Worker
+        id: deploy
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare/sentinel-worker
+          command: deploy
