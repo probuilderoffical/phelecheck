@@ -1,15 +1,15 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { ActionTile } from "@/components/ActionTile";
 import { BottomNav } from "@/components/BottomNav";
-import { colors, radius, spacing } from "@/theme";
+import { radius, spacing } from "@/theme";
+import { useAppTheme } from "@/providers/AppPreferences";
 
 export default function HomeScreen() {
-  const scheme = useColorScheme() === "dark" ? "dark" : "light";
-  const c = colors[scheme];
+  const { scheme, colors: c } = useAppTheme();
   const [value, setValue] = useState("");
 
   const go = (type: string) => router.push({ pathname: "/check", params: { type } });
