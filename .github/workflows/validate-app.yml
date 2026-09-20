@@ -1,0 +1,39 @@
+name: Validate PheleCheck App
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - "src/**"
+      - "package.json"
+      - "app.json"
+      - "tsconfig.json"
+      - ".github/workflows/validate-app.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout PheleCheck
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Expo Doctor
+        run: npm run doctor
