@@ -14,7 +14,7 @@ PheleCheck is a mobile-first fraud-risk verification app built with React Native
 - Payment and phone entry points
 - Result/evidence layout
 - 12-language-ready configuration
-- No third-party AI API wired in yet
+- Sentinel-1 cloud AI gateway wired through Supabase with local fallback
 
 ## Run on a phone
 
