@@ -5,9 +5,25 @@ import { Ionicons } from "@expo/vector-icons";
 import { BottomNav } from "@/components/BottomNav";
 import { radius, spacing } from "@/theme";
 import { useAppTheme } from "@/providers/AppPreferences";
+import { useAuth } from "@/providers/AuthProvider";
+import { supabase } from "@/lib/supabase";
+import { Alert } from "react-native";
 
 export default function ReportScreen(){
-  const { scheme, colors: c } = useAppTheme(); const [text,setText]=useState("");
+  const { scheme, colors: c } = useAppTheme(); const [text,setText]=useState(""); const [sending,setSending]=useState(false); const { user }=useAuth();
+
+  async function submitReport(){
+    if(!text.trim() || sending) return;
+    setSending(true);
+    const { error } = await supabase.from("scam_reports").insert({
+      user_id: user?.id ?? null,
+      report_type: "general",
+      report_text: text.trim()
+    });
+    setSending(false);
+    if(error) Alert.alert("Could not submit", error.message);
+    else { setText(""); Alert.alert("Report received","Thank you. Reports are reviewed before they affect reputation or training."); }
+  }
   return <SafeAreaView style={[styles.safe,{backgroundColor:c.background}]} edges={["top","left","right"]}>
     <View style={styles.header}><Text style={[styles.title,{color:c.text}]}>Report a scam</Text></View>
     <View style={styles.body}>
@@ -15,9 +31,9 @@ export default function ReportScreen(){
       <View style={[styles.card,{backgroundColor:c.surface,borderColor:c.border}]}>
         <TextInput value={text} onChangeText={setText} multiline placeholder="Paste the number, account, link or details" placeholderTextColor={c.textMuted} style={[styles.input,{color:c.text}]}/>
       </View>
-      <Pressable disabled={!text.trim()} style={[styles.button,{backgroundColor:text.trim()?c.text:c.surfaceMuted}]}>
+      <Pressable onPress={submitReport} disabled={!text.trim()||sending} style={[styles.button,{backgroundColor:text.trim()?c.text:c.surfaceMuted}]}>
         <Ionicons name="shield-checkmark-outline" size={18} color={text.trim()?(scheme==="dark"?"#111":"#fff"):c.textMuted}/>
-        <Text style={[styles.buttonText,{color:text.trim()?(scheme==="dark"?"#111":"#fff"):c.textMuted}]}>Submit report</Text>
+        <Text style={[styles.buttonText,{color:text.trim()?(scheme==="dark"?"#111":"#fff"):c.textMuted}]}>{sending?"Submitting...":"Submit report"}</Text>
       </Pressable>
       <Text style={[styles.note,{color:c.textMuted}]}>Reports will be reviewed before they can affect reputation or model training.</Text>
     </View>
