@@ -47,11 +47,8 @@ export default function SettingsScreen(){
       </Pressable>
 
       <Section title="GENERAL" c={c}>
-        <Row icon="language-outline" label="Language" value={preferences.language==="en"?"English":preferences.language.toUpperCase()} c={c}/>
-        <Row icon="sunny-outline" label="Appearance" value={preferences.appearance==="light"?"Light":preferences.appearance==="dark"?"Dark":"System"} onPress={()=>{
-          const next=preferences.appearance==="light"?"dark":preferences.appearance==="dark"?"system":"light";
-          setPreference("appearance",next);
-        }} c={c}/>
+        <Row icon="language-outline" label="Language" value={preferences.language==="en"?"English":preferences.language.toUpperCase()} onPress={()=>router.push("/language")} c={c}/>
+        <Row icon="sunny-outline" label="Appearance" value={preferences.appearance==="light"?"Light":preferences.appearance==="dark"?"Dark":"System"} onPress={()=>router.push("/appearance")} c={c}/>
         <ToggleRow icon="notifications-outline" label="Notifications" value={preferences.notifications} onValueChange={(v:boolean)=>setPreference("notifications",v)} c={c}/>
         <ToggleRow icon="alert-circle-outline" label="Safety reminders" value={preferences.safetyReminders} onValueChange={(v:boolean)=>setPreference("safetyReminders",v)} c={c}/>
       </Section>
@@ -67,7 +64,8 @@ export default function SettingsScreen(){
           const next=preferences.uploadRetention==="24h"?"immediate":preferences.uploadRetention==="immediate"?"7d":"24h";
           setPreference("uploadRetention",next);
         }} c={c}/>
-        <Row icon="trash-outline" label="Clear local history" onPress={()=>Alert.alert("Clear history","History storage will be connected next. This will never delete your account.")} c={c}/>
+        <Row icon="trash-outline" label="Clear local history" onPress={()=>Alert.alert("Clear history","This will remove saved checks from this device. Your account will not be deleted.")} c={c}/>
+        <Row icon="hardware-chip-outline" label="Clear memory" onPress={()=>Alert.alert("Clear memory","This will remove locally remembered risk context. Your account settings stay unchanged.")} c={c}/>
         <Row icon="download-outline" label="Export my data" c={c}/>
         <Row icon="shield-checkmark-outline" label="Privacy & security" c={c}/>
       </Section>
