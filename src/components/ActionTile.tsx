@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View, useColorScheme } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radius } from "@/theme";
+import { radius } from "@/theme";
+import { useAppTheme } from "@/providers/AppPreferences";
 
 type Props = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -10,8 +11,7 @@ type Props = {
 };
 
 export function ActionTile({ icon, label, subtitle, onPress }: Props) {
-  const scheme = useColorScheme() === "dark" ? "dark" : "light";
-  const c = colors[scheme];
+  const { scheme, colors: c } = useAppTheme();
 
   return (
     <Pressable
