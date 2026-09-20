@@ -1,0 +1,15 @@
+{
+  "name": "phelecheck-sentinel-cloudflare",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260920.0",
+    "typescript": "^6.0.0",
+    "wrangler": "^4.0.0"
+  }
+}
