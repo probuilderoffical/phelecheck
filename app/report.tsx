@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View, useColorScheme } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { BottomNav } from "@/components/BottomNav";
-import { colors, radius, spacing } from "@/theme";
+import { radius, spacing } from "@/theme";
+import { useAppTheme } from "@/providers/AppPreferences";
 
 export default function ReportScreen(){
-  const scheme=useColorScheme()==="dark"?"dark":"light"; const c=colors[scheme]; const [text,setText]=useState("");
+  const { scheme, colors: c } = useAppTheme(); const [text,setText]=useState("");
   return <SafeAreaView style={[styles.safe,{backgroundColor:c.background}]} edges={["top","left","right"]}>
     <View style={styles.header}><Text style={[styles.title,{color:c.text}]}>Report a scam</Text></View>
     <View style={styles.body}>
