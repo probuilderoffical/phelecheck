@@ -1,7 +1,7 @@
 import { router } from "expo-router";
-import { Pressable, StyleSheet, Text, View, useColorScheme } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors } from "@/theme";
+import { useAppTheme } from "@/providers/AppPreferences";
 
 type Tab = "home" | "history" | "report" | "settings";
 
@@ -13,8 +13,7 @@ const items: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; ro
 ];
 
 export function BottomNav({ active }: { active: Tab }) {
-  const scheme = useColorScheme() === "dark" ? "dark" : "light";
-  const c = colors[scheme];
+  const { scheme, colors: c } = useAppTheme();
 
   return (
     <View style={[styles.wrap, { backgroundColor: c.surface, borderTopColor: c.border }]}>
