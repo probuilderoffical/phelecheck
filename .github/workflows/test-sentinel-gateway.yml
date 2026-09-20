@@ -23,6 +23,11 @@ jobs:
       - name: Analyze scam sample
         run: |
           set -euo pipefail
-          response=$(curl --fail-with-body --show-error --silent             -X POST             -H "Content-Type: application/json"             -d '{"text":"Urgent! Send a verification fee today to unlock your prize. Do not tell anyone.","language":"en"}'             "https://duqmwlgstztbjjzvejpk.supabase.co/functions/v1/sentinel-analyze")
-          echo "$response"
+          tmp=$(mktemp)
+          status=$(curl --show-error --silent             -o "$tmp"             -w "%{http_code}"             -X POST             -H "Content-Type: application/json"             -d '{"text":"Urgent! Send a verification fee today to unlock your prize. Do not tell anyone.","language":"en"}'             "https://duqmwlgstztbjjzvejpk.supabase.co/functions/v1/sentinel-analyze")
+          echo "HTTP_STATUS=$status"
+          cat "$tmp"
+          echo
+          test "$status" = "200"
+          response=$(cat "$tmp")
           python -c 'import json,sys; d=json.loads(sys.argv[1]); assert d.get("source")=="sentinel"; assert d.get("riskLevel") in {"low","caution","high","unknown"}; assert isinstance(d.get("score"), int); assert d.get("model")=="PheleCheck Sentinel-1"' "$response"
