@@ -1,14 +1,24 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useColorScheme } from "react-native";
+import { AppPreferencesProvider, useAppTheme } from "@/providers/AppPreferences";
+import { AuthProvider } from "@/providers/AuthProvider";
 
-export default function RootLayout() {
-  const dark = useColorScheme() === "dark";
-
+function AppShell() {
+  const { scheme } = useAppTheme();
   return (
     <>
-      <StatusBar style={dark ? "light" : "dark"} />
+      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
       <Stack screenOptions={{ headerShown: false, animation: "fade" }} />
     </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AppPreferencesProvider>
+      <AuthProvider>
+        <AppShell />
+      </AuthProvider>
+    </AppPreferencesProvider>
   );
 }
