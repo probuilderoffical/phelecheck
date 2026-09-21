@@ -82,7 +82,7 @@ export default function SettingsScreen(){
       </Section>
 
       <Pressable onPress={resetPreferences} style={styles.reset}><Text style={[styles.resetText,{color:c.textMuted}]}>Reset settings to defaults</Text></Pressable>
-      <Text style={[styles.version,{color:c.textMuted}]}>PheleCheck 1.1.0 • Sentinel-1</Text>
+      <Text style={[styles.version,{color:c.textMuted}]}>PheleCheck 1.2.0 • Sentinel-1</Text>
     </ScrollView>
     <BottomNav active="settings"/>
   </SafeAreaView>;
