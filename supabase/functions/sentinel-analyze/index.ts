@@ -251,6 +251,17 @@ function deterministicGuard(text: string) {
     /(gift card|gift cards).{0,50}(send|share|give|provide).{0,30}(code|codes)/i.test(text) ||
     /(send|share|give|provide).{0,30}(gift card|gift cards).{0,30}(code|codes)/i.test(text);
 
+  const remoteAccess = /(install|download|open|use).{0,30}(anydesk|teamviewer|remote access|screen share)/i.test(text);
+  const supportOrBank = /(bank|support|technician|security team|microsoft|apple|wallet|exchange)/i.test(text);
+  const recoveryFee = /(recover|recovery|unlock|release).{0,50}(funds|money|crypto|wallet|account).{0,60}(fee|payment|pay|deposit)/i.test(text) ||
+    /(fee|payment|pay|deposit).{0,60}(recover|recovery|unlock|release).{0,50}(funds|money|crypto|wallet|account)/i.test(text);
+  const loanAdvance = /(loan|credit).{0,60}(approved|release|disburse).{0,60}(fee|deposit|insurance|processing)/i.test(text) ||
+    /(fee|deposit|insurance|processing).{0,60}(loan|credit).{0,60}(approved|release|disburse)/i.test(text);
+  const authorityThreat = /(police|court|tax|government|customs|immigration|warrant|arrest).{0,80}(pay|payment|wire|transfer|gift card|crypto|fee)/i.test(text);
+  const refundOverpay = /(overpaid|overpayment|refund|accidentally sent).{0,80}(send back|return|transfer|pay back|refund me)/i.test(text);
+  const marketplacePressure = /(marketplace|seller|buyer).{0,80}(off-platform|off the platform|whatsapp|telegram|outside).{0,80}(pay|payment|deposit|fee|transfer)/i.test(text);
+  const accountChangePayment = /(invoice|vendor|supplier|boss|ceo|finance).{0,80}(new bank|change bank|different account|updated bank).{0,80}(pay|payment|transfer|invoice)/i.test(text);
+
   const contextCount = [pressure, bait, secrecy, blockedThreat].filter(Boolean).length;
 
   if (credentialRequest) {
@@ -258,6 +269,13 @@ function deterministicGuard(text: string) {
   }
   if (giftCardCodeRequest) {
     return { high: true, score: 90, reason: "The content asks for gift card codes, a common irreversible-payment scam pattern." };
+  }
+  if ((remoteAccess && supportOrBank) || recoveryFee || loanAdvance || authorityThreat || refundOverpay || marketplacePressure || accountChangePayment) {
+    return {
+      high: true,
+      score: authorityThreat || recoveryFee ? 90 : 86,
+      reason: "The content matches a strong fraud pattern involving remote access, advance/recovery fees, authority pressure, refund tricks, marketplace payment pressure, or changed payment instructions."
+    };
   }
   if (payment && (bait || contextCount >= 2)) {
     return { high: true, score: bait && contextCount >= 2 ? 90 : 84, reason: "The content combines a payment request with strong fraud-pressure signals." };
@@ -301,7 +319,7 @@ function safeFallback(text: string, language: string, webEvidence: WebEvidence[]
       : guard.reason;
     return {
       model: "PheleCheck Sentinel-1",
-      version: "1.6-resilient-fusion",
+      version: "1.7-resilient-fusion",
       riskLevel: "high",
       score: scannerBad ? Math.max(88, guard.score) : guard.score,
       confidence: 86,
@@ -384,7 +402,7 @@ function safeFallback(text: string, language: string, webEvidence: WebEvidence[]
 
   return {
     model: "PheleCheck Sentinel-1",
-    version: "1.6-resilient-fusion",
+    version: "1.7-resilient-fusion",
     riskLevel,
     score,
     confidence: riskLevel === "high" ? 82 : riskLevel === "caution" ? 64 : 56,
@@ -423,7 +441,7 @@ function normalize(data: any, language: string, webEvidence: WebEvidence[], text
   }
   return {
     model: "PheleCheck Sentinel-1",
-    version: "1.6-resilient-fusion",
+    version: "1.7-resilient-fusion",
     riskLevel,
     score: Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : 50,
     confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(100, Math.round(confidence))) : 20,
