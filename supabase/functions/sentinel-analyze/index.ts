@@ -68,7 +68,7 @@ async function sha256(value: string) {
 async function consumeQuota(req: Request, limit = 40) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceKey) return { allowed: true, remaining: limit };
+  if (!supabaseUrl || !serviceKey) return { allowed: false, remaining: 0, error: true };
 
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
     || req.headers.get("cf-connecting-ip")
@@ -86,7 +86,7 @@ async function consumeQuota(req: Request, limit = 40) {
     body: JSON.stringify({ p_subject_hash: subject, p_limit: limit }),
   });
 
-  if (!response.ok) return { allowed: true, remaining: limit };
+  if (!response.ok) return { allowed: false, remaining: 0, error: true };
   const rows = await response.json();
   const row = Array.isArray(rows) ? rows[0] : rows;
   return {
@@ -210,6 +210,9 @@ Deno.serve(async (req: Request) => {
   if (!accountId || !apiToken) return json({ error: "Sentinel gateway is not configured" }, 503);
 
   const quota = await consumeQuota(req, 40);
+  if ((quota as any).error) {
+    return json({ error: "Safety gateway is temporarily unavailable. Please try again shortly." }, 503);
+  }
   if (!quota.allowed) {
     return json({ error: "Too many checks. Please try again later." }, 429, { "Retry-After": "3600" });
   }
