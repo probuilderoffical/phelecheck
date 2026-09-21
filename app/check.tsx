@@ -1,5 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
+import { Camera } from "expo-camera";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -27,16 +28,31 @@ export default function CheckScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageMimeType, setImageMimeType] = useState<string | null>(null);
+  const [qrValue, setQrValue] = useState<string | null>(null);
   const isImage = type === "screenshot" || type === "qr";
   const title = useMemo(() => titleFor(type), [type]);
+
+  async function acceptAsset(asset: ImagePicker.ImagePickerAsset) {
+    setImageUri(asset.uri);
+    setImageBase64(asset.base64 ?? null);
+    setImageMimeType(asset.mimeType ?? "image/jpeg");
+    setQrValue(null);
+
+    if (type === "qr") {
+      try {
+        const codes = await Camera.scanFromURLAsync(asset.uri, ["qr"]);
+        const decoded = codes[0]?.data?.trim();
+        if (decoded) setQrValue(decoded.slice(0, 4000));
+      } catch {
+        // Vision analysis still runs when native QR decoding cannot read the image.
+      }
+    }
+  }
 
   async function pickImage() {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.65, base64: true });
     if (!result.canceled) {
-      const asset = result.assets[0];
-      setImageUri(asset.uri);
-      setImageBase64(asset.base64 ?? null);
-      setImageMimeType(asset.mimeType ?? "image/jpeg");
+      await acceptAsset(result.assets[0]);
       Haptics.selectionAsync();
     }
   }
@@ -45,12 +61,7 @@ export default function CheckScreen() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) return;
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.65, base64: true });
-    if (!result.canceled) {
-      const asset = result.assets[0];
-      setImageUri(asset.uri);
-      setImageBase64(asset.base64 ?? null);
-      setImageMimeType(asset.mimeType ?? "image/jpeg");
-    }
+    if (!result.canceled) await acceptAsset(result.assets[0]);
   }
 
   async function analyze() {
@@ -63,7 +74,9 @@ export default function CheckScreen() {
         imageBase64,
         mimeType: imageMimeType ?? "image/jpeg",
         text: type === "qr"
-          ? "Inspect this QR code. If its destination or encoded value is readable, assess that evidence too. Do not invent a destination if it cannot be read."
+          ? qrValue
+            ? `Native QR decoder extracted this value: ${qrValue}\nAssess the decoded destination/value together with the QR image. Live web evidence should be used for any decoded website.`
+            : "Native QR decoding could not extract a value. Inspect this QR image, but do not invent a destination if it cannot be read reliably."
           : "Inspect this screenshot for fraud, phishing, impersonation, payment pressure, suspicious links, credential requests, or other scam signals."
       });
       router.push({ pathname: "/result", params: { type: type ?? "screenshot", pendingKey } });
@@ -103,6 +116,14 @@ export default function CheckScreen() {
                   </>
                 )}
               </View>
+              {type === "qr" && imageUri ? (
+                <View style={[styles.qrStatus, { backgroundColor: c.surfaceMuted }]}>
+                  <Ionicons name={qrValue ? "checkmark-circle-outline" : "information-circle-outline"} size={18} color={c.textMuted} />
+                  <Text numberOfLines={2} style={[styles.qrStatusText, { color: c.textMuted }]}>
+                    {qrValue ? `QR decoded: ${qrValue}` : "QR value was not decoded locally. Sentinel vision will still inspect the image."}
+                  </Text>
+                </View>
+              ) : null}
               <View style={styles.imageActions}>
                 <Pressable onPress={pickImage} style={[styles.secondary, { backgroundColor: c.surface, borderColor: c.border }]}>
                   <Ionicons name="images-outline" size={19} color={c.text} /><Text style={[styles.secondaryText, { color: c.text }]}>Gallery</Text>
@@ -166,6 +187,8 @@ const styles = StyleSheet.create({
   uploadTitle: { fontSize: 17, fontWeight: "800", marginTop: 14 },
   uploadText: { fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 5 },
   preview: { width: "100%", height: 330, resizeMode: "contain" },
+  qrStatus: { marginTop: 12, borderRadius: 14, padding: 12, flexDirection: "row", gap: 8, alignItems: "flex-start" },
+  qrStatusText: { flex: 1, fontSize: 11, lineHeight: 16 },
   imageActions: { flexDirection: "row", gap: 10, marginTop: 12 },
   secondary: { flex: 1, height: 50, borderWidth: 1, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   secondaryText: { fontSize: 14, fontWeight: "700" },
