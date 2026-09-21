@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/providers/AppPreferences";
 
 type Tab = "home" | "history" | "report" | "settings";
@@ -13,10 +14,20 @@ const items: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; ro
 ];
 
 export function BottomNav({ active }: { active: Tab }) {
-  const { scheme, colors: c } = useAppTheme();
+  const { colors: c } = useAppTheme();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.wrap, { backgroundColor: c.surface, borderTopColor: c.border }]}>
+    <View
+      style={[
+        styles.wrap,
+        {
+          backgroundColor: c.surface,
+          borderTopColor: c.border,
+          paddingBottom: Math.max(insets.bottom, 8)
+        }
+      ]}
+    >
       {items.map((item) => {
         const selected = item.key === active;
         return (
@@ -26,7 +37,7 @@ export function BottomNav({ active }: { active: Tab }) {
               size={22}
               color={selected ? c.text : c.textMuted}
             />
-            <Text style={[styles.label, { color: selected ? c.text : c.textMuted, fontWeight: selected ? "700" : "500" }]}>
+            <Text style={[styles.label, { color: selected ? c.text : c.textMuted, fontWeight: selected ? "800" : "500" }]}>
               {item.label}
             </Text>
           </Pressable>
@@ -40,9 +51,8 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: "row",
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 10,
-    paddingBottom: 8
+    paddingTop: 10
   },
-  item: { flex: 1, alignItems: "center", gap: 4 },
+  item: { flex: 1, minHeight: 46, alignItems: "center", justifyContent: "center", gap: 4 },
   label: { fontSize: 11 }
 });
