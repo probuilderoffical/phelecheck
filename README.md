@@ -4,7 +4,7 @@
 
 PheleCheck is a mobile-first fraud-risk verification app built with React Native and Expo.
 
-## Current build
+## Current build (1.2.0)
 
 - Professional responsive light/dark UI
 - Sentinel-1 cloud fraud-risk analysis with conservative local fallback
@@ -38,4 +38,4 @@ npx expo start
 
 ## Architecture direction
 
-The client app will connect to PheleCheck's own backend and self-hosted AI stack. Sensitive secrets must never be committed to this repository.
+The mobile client connects to Supabase Edge Functions for server-side orchestration. Sentinel-1 currently uses Cloudflare-hosted Qwen inference with URL Scanner evidence, deterministic safeguards, and local fallback behavior. Sensitive secrets must never be committed to this repository.
