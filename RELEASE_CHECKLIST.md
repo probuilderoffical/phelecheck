@@ -1,5 +1,15 @@
 # PheleCheck Release Readiness
 
+## Latest automated status
+
+- App validation: passing
+- Gateway health smoke: passing
+- Release backend smoke: passing
+- Web evidence smoke: passing
+- Supabase security advisor: no security lints
+- Live Cloudflare AI inference: currently constrained by the free daily Workers AI allocation; degraded fallback is implemented but unrestricted public launch still requires production capacity
+
+
 ## Automated gates
 
 - [x] App TypeScript validation passes.
