@@ -17,6 +17,15 @@ export type RiskAnalysis = {
   actions: string[];
   language: string;
   source: "sentinel" | "local-fallback";
+  webEvidence?: Array<{
+    provider: string;
+    domain: string;
+    status: "checked" | "no-records" | "unavailable";
+    scansFound: number;
+    maliciousMatches: number;
+    latestScanAt?: string;
+    summary: string;
+  }>;
 };
 
 const strongSignals = [
