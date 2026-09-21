@@ -99,7 +99,7 @@ export default function CheckScreen() {
 
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <Text style={[styles.title, { color: c.text }]}>What should we check?</Text>
-          <Text style={[styles.help, { color: c.textMuted }]}>Only add the information needed for this check. Keep passwords, PINs and OTPs private.</Text>
+          <Text style={[styles.help, { color: c.textMuted }]}>Only add the information needed for this check. Remove passwords, PINs, OTPs, CVV codes and full card numbers first.</Text>
 
           {isImage ? (
             <>
@@ -151,7 +151,7 @@ export default function CheckScreen() {
               />
               <View style={[styles.inputHint, { borderTopColor: c.border }]}>
                 <Ionicons name="shield-checkmark-outline" size={16} color={c.textMuted} />
-                <Text style={[styles.inputHintText, { color: c.textMuted }]}>Sensitive data will be protected before analysis.</Text>
+                <Text style={[styles.inputHintText, { color: c.textMuted }]}>Text secrets such as OTPs and card numbers are redacted when detected. Still remove sensitive data before checking.</Text>
               </View>
             </View>
           )}
