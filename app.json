@@ -23,6 +23,14 @@
           "photosPermission": "Allow PheleCheck to access screenshots you choose for fraud-risk analysis.",
           "cameraPermission": "Allow PheleCheck to use the camera for scanning suspicious content."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow PheleCheck to use the camera for QR and fraud-risk checks.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
       ]
     ],
     "experiments": {
