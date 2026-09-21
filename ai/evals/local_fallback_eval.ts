@@ -22,6 +22,13 @@ const cases: Case[] = [
   { id: "amb-marketplace", text: "This seller wants me to move the conversation off the marketplace before I buy.", forbidden: ["high"] },
   { id: "amb-verification", text: "Your account needs verification. Open the official app and follow the instructions.", forbidden: ["high"] },
 
+  { id: "benign-family-payment", text: "Please send me PKR 2,000 for the groceries we split yesterday.", forbidden: ["high"] },
+  { id: "benign-vendor-change-notice", text: "Our supplier says their bank details changed. I will call our known contact before paying.", forbidden: ["high"] },
+  { id: "amb-romance-emergency", text: "Someone I met online says they have an emergency and need money today.", forbidden: ["high"] },
+  { id: "amb-support-call", text: "A caller says they are technical support and wants to help with my computer.", forbidden: ["high"] },
+  { id: "amb-refund", text: "A seller says there may have been a refund mistake and asked me to check my account.", forbidden: ["high"] },
+  { id: "amb-bec", text: "My boss emailed asking whether we can change the payment account for a supplier.", forbidden: ["high"] },
+
   { id: "scam-prize-fee", text: "Urgent! Pay a verification fee today to unlock your prize. Do not tell anyone.", required: ["high"] },
   { id: "scam-otp", text: "Send me the OTP you just received so I can secure your bank account.", required: ["high"] },
   { id: "scam-crypto", text: "Guaranteed crypto profit. Send $500 now and I will double it tonight.", required: ["high"] },
@@ -33,7 +40,14 @@ const cases: Case[] = [
   { id: "scam-hindi", text: "आप इनाम जीत गए। पैसे भेजो और किसी को मत बताना।", required: ["high"] },
   { id: "scam-urdu", text: "آپ انعام جیت گئے ہیں۔ فوری ادائیگی کریں اور کسی کو نہ بتائیں۔", required: ["high"] },
   { id: "scam-gift-card", text: "Buy gift cards now and send me the codes to avoid account suspension.", required: ["high"] },
-  { id: "scam-seed", text: "Share your seed phrase with support so we can recover your wallet.", required: ["high"] }
+  { id: "scam-seed", text: "Share your seed phrase with support so we can recover your wallet.", required: ["high"] },
+  { id: "scam-remote-access", text: "I am bank support. Install AnyDesk now so I can secure your online banking.", required: ["high"] },
+  { id: "scam-recovery-fee", text: "We recovered your stolen crypto. Pay a recovery fee first to release your funds.", required: ["high"] },
+  { id: "scam-loan-fee", text: "Your loan is approved. Pay the insurance and processing fee before we release the money.", required: ["high"] },
+  { id: "scam-authority-threat", text: "This is the tax authority. Pay the penalty by wire today or a warrant will be issued.", required: ["high"] },
+  { id: "scam-refund-overpay", text: "I accidentally overpaid your refund. Send the extra money back to this new account now.", required: ["high"] },
+  { id: "scam-marketplace-offplatform", text: "I am the buyer. Move off the marketplace to WhatsApp and pay the courier deposit before I collect it.", required: ["high"] },
+  { id: "scam-bec-account-change", text: "CEO request: use the new bank account below and transfer the supplier invoice immediately.", required: ["high"] }
 ];
 
 const failures: string[] = [];
