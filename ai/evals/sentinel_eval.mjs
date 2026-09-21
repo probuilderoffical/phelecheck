@@ -31,7 +31,8 @@ async function analyze(test) {
   const res = await fetch(endpoint, {
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({text:test.text, language:"en", inputType:"message"})
+    body:JSON.stringify({text:test.text, language:"en", inputType:"message"}),
+    signal: AbortSignal.timeout(60_000)
   });
   const body = await res.json().catch(()=>({}));
   if (!res.ok) throw new Error(`${test.id}: HTTP ${res.status} ${JSON.stringify(body)}`);
@@ -41,14 +42,31 @@ async function analyze(test) {
 let failures = [];
 let results = [];
 
-for (const test of cases) {
-  const result = await analyze(test);
-  results.push({id:test.id,group:test.group,riskLevel:result.riskLevel,score:result.score,confidence:result.confidence});
-  if (test.required && !test.required.includes(result.riskLevel)) {
-    failures.push(`${test.id}: expected ${test.required.join("/")} but got ${result.riskLevel}`);
-  }
-  if (test.forbidden && test.forbidden.includes(result.riskLevel)) {
-    failures.push(`${test.id}: forbidden ${result.riskLevel}`);
+for (let i = 0; i < cases.length; i += 4) {
+  const batch = cases.slice(i, i + 4);
+  const batchResults = await Promise.all(batch.map(async (test) => {
+    try {
+      const result = await analyze(test);
+      return { test, result };
+    } catch (error) {
+      return { test, error };
+    }
+  }));
+
+  for (const item of batchResults) {
+    const { test } = item;
+    if (item.error) {
+      failures.push(`${test.id}: request failed: ${item.error instanceof Error ? item.error.message : String(item.error)}`);
+      continue;
+    }
+    const result = item.result;
+    results.push({id:test.id,group:test.group,riskLevel:result.riskLevel,score:result.score,confidence:result.confidence});
+    if (test.required && !test.required.includes(result.riskLevel)) {
+      failures.push(`${test.id}: expected ${test.required.join("/")} but got ${result.riskLevel}`);
+    }
+    if (test.forbidden && test.forbidden.includes(result.riskLevel)) {
+      failures.push(`${test.id}: forbidden ${result.riskLevel}`);
+    }
   }
 }
 
@@ -65,4 +83,4 @@ console.log(JSON.stringify({
 
 if (failures.length) process.exit(1);
 
-// Regression suite version 1.0
+// Regression suite version 1.1: bounded concurrency + request timeout
