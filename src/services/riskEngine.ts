@@ -40,7 +40,11 @@ const mediumSignals = [
   "limited time", "act now", "verify account", "account blocked", "account suspended",
   "click link", "claim prize", "winner", "prize", "refund fee", "delivery fee",
   "customs fee", "do not tell anyone", "keep this secret", "aaj hi", "abhi",
-  "verify karo", "اکاؤنٹ بند", "انعام"
+  "verify karo", "اکاؤنٹ بند", "انعام", "move off the marketplace", "off the marketplace",
+  "install anydesk", "install teamviewer", "remote access", "recovery fee", "loan fee",
+  "upfront fee", "change bank account", "new bank details", "send it back", "overpayment",
+  "arrest", "warrant", "police", "tax authority", "emergency", "don't contact",
+  "kisi ko mat batana", "account band", "loan release", "fund recovery"
 ];
 
 const credentialTerms = ["otp", "pin", "password", "cvv", "seed phrase", "private key"];
@@ -75,6 +79,17 @@ function deterministicHighRisk(text: string) {
   const giftCardCodeRequest = /(gift card|gift cards).{0,50}(send|share|give|provide).{0,30}(code|codes)/i.test(text) ||
     /(send|share|give|provide).{0,30}(gift card|gift cards).{0,30}(code|codes)/i.test(text);
 
+  const remoteAccess = /(install|download|open|use).{0,30}(anydesk|teamviewer|remote access|screen share)/i.test(text);
+  const supportOrBank = /(bank|support|technician|security team|microsoft|apple|wallet|exchange)/i.test(text);
+  const recoveryFee = /(recover|recovery|unlock|release).{0,50}(funds|money|crypto|wallet|account).{0,60}(fee|payment|pay|deposit)/i.test(text) ||
+    /(fee|payment|pay|deposit).{0,60}(recover|recovery|unlock|release).{0,50}(funds|money|crypto|wallet|account)/i.test(text);
+  const loanAdvance = /(loan|credit).{0,60}(approved|release|disburse).{0,60}(fee|deposit|insurance|processing)/i.test(text) ||
+    /(fee|deposit|insurance|processing).{0,60}(loan|credit).{0,60}(approved|release|disburse)/i.test(text);
+  const authorityThreat = /(police|court|tax|government|customs|immigration|warrant|arrest).{0,80}(pay|payment|wire|transfer|gift card|crypto|fee)/i.test(text);
+  const refundOverpay = /(overpaid|overpayment|refund|accidentally sent).{0,80}(send back|return|transfer|pay back|refund me)/i.test(text);
+  const marketplacePressure = /(marketplace|seller|buyer).{0,80}(off-platform|off the platform|whatsapp|telegram|outside).{0,80}(pay|payment|deposit|fee|transfer)/i.test(text);
+  const accountChangePayment = /(invoice|vendor|supplier|boss|ceo|finance).{0,80}(new bank|change bank|different account|updated bank).{0,80}(pay|payment|transfer|invoice)/i.test(text);
+
   const contextCount = [pressure, bait, secrecy, blockedThreat].filter(Boolean).length;
 
   if (credentialRequest) {
@@ -92,6 +107,15 @@ function deterministicHighRisk(text: string) {
       score: 90,
       title: "Gift card code request",
       detail: "The content asks for gift card codes, a common irreversible-payment scam pattern."
+    };
+  }
+
+  if ((remoteAccess && supportOrBank) || recoveryFee || loanAdvance || authorityThreat || refundOverpay || marketplacePressure || accountChangePayment) {
+    return {
+      high: true,
+      score: authorityThreat || recoveryFee ? 90 : 86,
+      title: "High-risk scam pattern",
+      detail: "The content matches a strong fraud pattern involving remote access, advance/recovery fees, authority pressure, refund tricks, marketplace payment pressure, or changed payment instructions."
     };
   }
 
