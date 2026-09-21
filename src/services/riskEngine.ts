@@ -66,11 +66,11 @@ function deterministicHighRisk(text: string) {
     /\b(otp|pin|password|cvv|seed phrase|private key)\b.{0,40}\b(send|share|enter|provide|tell|bhejo|batao|do)\b/i.test(text) ||
     /(otp|pin|password|cvv).{0,40}(بھیجو|بتاؤ|شیئر)/i.test(text);
 
-  const payment = /(pay|payment|fee|wire|transfer|gift card|crypto|send money|paisa|paise|bhejo|ادائیگی|پیسے)/i.test(text);
-  const pressure = /(urgent|immediately|today|now|within an hour|limited time|act now|abhi|jaldi|فوری|ابھی)/i.test(text);
-  const bait = /(prize|winner|job|processing fee|verification fee|guaranteed|double your money|profit|inaam|انعام|منافع|نوکری)/i.test(text);
+  const payment = /(pay|payment|fee|wire|transfer|gift card|crypto|send money|paisa|paise|bhejo|ادائیگی|پیسے|पैसे भेजो)/i.test(text);
+  const pressure = /(urgent|immediately|today|now|within an hour|within the next hour|in the next hour|next hour|limited time|act now|abhi|jaldi|فوری|ابھی)/i.test(text);
+  const bait = /(prize|winner|job|processing fee|verification fee|guaranteed|double your money|profit|inaam|انعام|मुनाफा|इनाम|منافع|نوکری)/i.test(text);
   const secrecy = /(do not tell|don't tell|keep.*secret|kisi ko na|کسی کو نہ)/i.test(text);
-  const blockedThreat = /(account.*blocked|account.*band|suspended|destroyed|closed|اکاؤنٹ.*بند)/i.test(text);
+  const blockedThreat = /(account.*blocked|account.*band|account.*suspension|suspended|destroyed|closed|اکاؤنٹ.*بند)/i.test(text);
 
   const contextCount = [pressure, bait, secrecy, blockedThreat].filter(Boolean).length;
 
