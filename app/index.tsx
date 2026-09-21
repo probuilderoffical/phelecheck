@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   statusPill: { alignSelf: "flex-start", height: 28, borderRadius: 14, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 7 },
   statusDot: { width: 7, height: 7, borderRadius: 4 },
   statusText: { fontSize: 11, fontWeight: "700" },
-  title: { fontSize: 34, lineHeight: 39, fontWeight: "850", letterSpacing: -1.2, marginTop: 14 },
+  title: { fontSize: 34, lineHeight: 39, fontWeight: "800", letterSpacing: -1.2, marginTop: 14 },
   subtitle: { fontSize: 14, lineHeight: 21, marginTop: 8, maxWidth: 390 },
   composer: { borderWidth: 1, borderRadius: radius.lg, padding: 16 },
   composerHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 },
