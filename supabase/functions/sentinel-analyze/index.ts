@@ -73,8 +73,7 @@ async function consumeQuota(req: Request, limit = 40) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
     || req.headers.get("cf-connecting-ip")
     || "unknown";
-  const ua = (req.headers.get("user-agent") || "unknown").slice(0, 120);
-  const subject = await sha256(`sentinel|${ip}|${ua}`);
+  const subject = await sha256(`sentinel|${ip}`);
 
   const response = await fetch(`${supabaseUrl}/rest/v1/rpc/consume_sentinel_quota`, {
     method: "POST",
@@ -164,14 +163,88 @@ async function searchUrlScanner(accountId: string, apiToken: string, domain: str
   }
 }
 
-function normalize(data: any, language: string, webEvidence: WebEvidence[]) {
-  const allowedRisk = new Set(["low", "caution", "high", "unknown"]);
-  const riskLevel = allowedRisk.has(data?.riskLevel) ? data.riskLevel : "unknown";
-  const score = Number(data?.score);
-  const confidence = Number(data?.confidence);
+function deterministicGuard(text: string) {
+  const lower = text.toLowerCase();
+  const credentialRequest =
+    /\b(send|share|enter|provide|tell|bhejo|do)\b.{0,30}\b(otp|pin|password|cvv|seed phrase|private key)\b/i.test(text) ||
+    /\b(otp|pin|password|cvv|seed phrase|private key)\b.{0,30}\b(send|share|enter|provide|tell|bhejo|do)\b/i.test(text);
+
+  const payment = /(pay|payment|fee|wire|transfer|gift card|crypto|send money|paisa|paise|ادائیگی|پیسے)/i.test(text);
+  const pressure = /(urgent|immediately|today|now|within an hour|limited time|act now|abhi|jaldi|فوری)/i.test(text);
+  const bait = /(prize|winner|job|processing fee|verification fee|guaranteed|double your money|profit|inaam|انعام|منافع)/i.test(text);
+  const secrecy = /(do not tell|don't tell|keep.*secret|kisi ko na|کسی کو نہ)/i.test(text);
+  const blockedThreat = /(account.*blocked|account.*band|suspended|destroyed|closed)/i.test(text);
+
+  const strongCombo = payment && ([pressure, bait, secrecy, blockedThreat].filter(Boolean).length >= 1);
+
+  if (credentialRequest) return { high: true, score: 92, reason: "The content explicitly requests a sensitive authentication or wallet credential." };
+  if (strongCombo && ([pressure, bait, secrecy, blockedThreat].filter(Boolean).length >= 2 || bait)) {
+    return { high: true, score: 86, reason: "The content combines a payment request with multiple strong fraud-pressure signals." };
+  }
+  return { high: false, score: 0, reason: "" };
+}
+
+function safeFallback(text: string, language: string, webEvidence: WebEvidence[], reason: string) {
+  const guard = deterministicGuard(text);
+  if (guard.high) {
+    return {
+      model: "PheleCheck Sentinel-1",
+      version: "1.4-fusion-guarded",
+      riskLevel: "high",
+      score: guard.score,
+      confidence: 84,
+      summary: guard.reason,
+      signals: [{
+        title: "Strong deterministic fraud signal",
+        detail: guard.reason,
+        severity: "danger"
+      }],
+      actions: [
+        "Do not send money or share sensitive credentials.",
+        "Verify the sender or organization through an official channel you find independently."
+      ],
+      language,
+      source: "sentinel",
+      webEvidence
+    };
+  }
+
   return {
     model: "PheleCheck Sentinel-1",
-    version: "1.3-vision-web-guarded",
+    version: "1.4-fusion-guarded",
+    riskLevel: "unknown",
+    score: 0,
+    confidence: 0,
+    summary: "PheleCheck could not produce a reliable AI assessment for this check, so it did not guess.",
+    signals: [{
+      title: "Analysis incomplete",
+      detail: reason,
+      severity: "info"
+    }],
+    actions: [
+      "Try the check again.",
+      "If money or account access is involved, verify independently through an official channel."
+    ],
+    language,
+    source: "sentinel",
+    webEvidence
+  };
+}
+
+function normalize(data: any, language: string, webEvidence: WebEvidence[], text = "") {
+  const allowedRisk = new Set(["low", "caution", "high", "unknown"]);
+  let riskLevel = allowedRisk.has(data?.riskLevel) ? data.riskLevel : "unknown";
+  let score = Number(data?.score);
+  let confidence = Number(data?.confidence);
+  const guard = deterministicGuard(text);
+  if (guard.high) {
+    riskLevel = "high";
+    score = Math.max(Number.isFinite(score) ? score : 0, guard.score);
+    confidence = Math.max(Number.isFinite(confidence) ? confidence : 0, 84);
+  }
+  return {
+    model: "PheleCheck Sentinel-1",
+    version: "1.4-fusion-guarded",
     riskLevel,
     score: Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : 50,
     confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(100, Math.round(confidence))) : 20,
@@ -263,7 +336,7 @@ Treat no-record/no-malicious results as non-conclusive. Return strict JSON only.
             { role: "system", content: SYSTEM_PROMPT },
             { role: "user", content: userContent },
           ],
-          max_completion_tokens: 900,
+          max_completion_tokens: 650,
           temperature: 0.05,
         }),
       },
@@ -275,8 +348,17 @@ Treat no-record/no-malicious results as non-conclusive. Return strict JSON only.
       return json({ error: String(message).slice(0, 500) }, 502);
     }
 
-    const parsed = parseModelJson(extractText(cloudflare));
-    return json(normalize(parsed, language, webEvidence), 200, { "X-RateLimit-Remaining": String(quota.remaining) });
+    const rawModel = extractText(cloudflare);
+    try {
+      const parsed = parseModelJson(rawModel);
+      return json(normalize(parsed, language, webEvidence, text), 200, { "X-RateLimit-Remaining": String(quota.remaining) });
+    } catch {
+      return json(
+        safeFallback(text, language, webEvidence, "The AI response could not be validated as structured JSON."),
+        200,
+        { "X-RateLimit-Remaining": String(quota.remaining) }
+      );
+    }
   } catch (error) {
     return json({ error: error instanceof Error ? error.message.slice(0, 500) : "Unknown Sentinel error" }, 500);
   }
