@@ -24,6 +24,8 @@ export default function AccountScreen(){
     </SafeAreaView>;
   }
 
+  const currentUser = user;
+
   async function signOut(){
     await supabase.auth.signOut();
     router.back();
@@ -32,15 +34,15 @@ export default function AccountScreen(){
   async function exportData(){
     try{
       const [profile,checks,memories,reports]=await Promise.all([
-        supabase.from("profiles").select("*").eq("id",user.id).maybeSingle(),
-        supabase.from("checks").select("*").eq("user_id",user.id).order("created_at",{ascending:false}),
-        supabase.from("memories").select("*").eq("user_id",user.id),
-        supabase.from("scam_reports").select("*").eq("user_id",user.id).order("created_at",{ascending:false})
+        supabase.from("profiles").select("*").eq("id",currentUser.id).maybeSingle(),
+        supabase.from("checks").select("*").eq("user_id",currentUser.id).order("created_at",{ascending:false}),
+        supabase.from("memories").select("*").eq("user_id",currentUser.id),
+        supabase.from("scam_reports").select("*").eq("user_id",currentUser.id).order("created_at",{ascending:false})
       ]);
 
       const payload={
         exportedAt:new Date().toISOString(),
-        account:{id:user.id,email:user.email},
+        account:{id:currentUser.id,email:currentUser.email},
         profile:profile.data ?? null,
         checks:checks.data ?? [],
         memories:memories.data ?? [],
@@ -85,13 +87,13 @@ export default function AccountScreen(){
     <View style={styles.body}>
       <View style={[styles.card,{backgroundColor:c.surface,borderColor:c.border}]}>
         <View style={[styles.avatar,{backgroundColor:c.surfaceMuted}]}><Ionicons name="person" size={28} color={c.text}/></View>
-        <Text style={[styles.email,{color:c.text}]}>{user.email}</Text>
+        <Text style={[styles.email,{color:c.text}]}>{currentUser.email}</Text>
         <Text style={[styles.meta,{color:c.textMuted}]}>PheleCheck account</Text>
       </View>
 
       <View style={[styles.list,{backgroundColor:c.surface,borderColor:c.border}]}>
         <View style={[styles.row,{borderBottomColor:c.border}]}><Ionicons name="sync-outline" size={20} color={c.text}/><Text style={[styles.rowText,{color:c.text}]}>Sync</Text><Text style={[styles.value,{color:c.success}]}>Active</Text></View>
-        <Pressable onPress={()=>router.push("/auth")} style={[styles.row,{borderBottomColor:c.border}]}><Ionicons name="shield-checkmark-outline" size={20} color={c.text}/><Text style={[styles.rowText,{color:c.text}]}>Account security</Text><Ionicons name="chevron-forward" size={18} color={c.textMuted}/></Pressable>
+        <Pressable onPress={()=>router.push("/reset-password")} style={[styles.row,{borderBottomColor:c.border}]}><Ionicons name="shield-checkmark-outline" size={20} color={c.text}/><Text style={[styles.rowText,{color:c.text}]}>Account security</Text><Ionicons name="chevron-forward" size={18} color={c.textMuted}/></Pressable>
         <Pressable onPress={exportData} style={[styles.row,{borderBottomColor:c.border}]}><Ionicons name="download-outline" size={20} color={c.text}/><Text style={[styles.rowText,{color:c.text}]}>Export account data</Text><Ionicons name="chevron-forward" size={18} color={c.textMuted}/></Pressable>
       </View>
 
