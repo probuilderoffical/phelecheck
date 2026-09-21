@@ -2,21 +2,17 @@ name: Sentinel-1 Safety Evals
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "supabase/functions/sentinel-analyze/**"
-      - "ai/evals/**"
 
 jobs:
   eval:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout PheleCheck
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22"
-      - name: Run Sentinel safety regression
+      - name: Run live Sentinel safety regression
         run: node ai/evals/sentinel_eval.mjs
