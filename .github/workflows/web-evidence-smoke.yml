@@ -1,0 +1,23 @@
+name: One-time Web Evidence Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/web-evidence-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check live URL evidence
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp)
+          status=$(curl --show-error --silent             -o "$tmp"             -w "%{http_code}"             -X POST             -H "Content-Type: application/json"             -d '{"text":"Check this website: https://www.google.com","language":"en","inputType":"link"}'             "https://duqmwlgstztbjjzvejpk.supabase.co/functions/v1/sentinel-analyze")
+          cat "$tmp"
+          echo
+          test "$status" = "200"
+          response=$(cat "$tmp")
+          python -c 'import json,sys; d=json.loads(sys.argv[1]); w=d.get("webEvidence") or []; assert len(w)>=1; assert w[0].get("domain")=="google.com"; assert w[0].get("status") in {"checked","no-records","unavailable"}' "$response"
