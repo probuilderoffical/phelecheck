@@ -72,7 +72,7 @@ export default function AuthScreen() {
         </View>
         <Text style={[styles.title,{color:c.text}]}>{mode==="signin"?"Welcome back":"Create your account"}</Text>
         <Text style={[styles.subtitle,{color:c.textMuted}]}>
-          {mode==="signin"?"Sign in to sync history, memory and settings.":"Create an account to sync PheleCheck across devices."}
+          {mode==="signin"?"Sign in to sync account settings and save account-backed check records.":"Create an account to keep PheleCheck settings linked to your account."}
         </Text>
 
         <View style={styles.form}>
