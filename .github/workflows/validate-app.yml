@@ -35,5 +35,8 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Local risk regression
+        run: npm run eval:local
+
       - name: Expo Doctor
         run: npm run doctor
