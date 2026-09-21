@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: "800" },
   scroll: { paddingHorizontal: spacing.lg, paddingBottom: 28 },
   eyebrow: { fontSize: 10, fontWeight: "800", letterSpacing: 1.1, marginTop: 18 },
-  title: { fontSize: 30, lineHeight: 35, fontWeight: "850", letterSpacing: -1, marginTop: 5 },
+  title: { fontSize: 30, lineHeight: 35, fontWeight: "800", letterSpacing: -1, marginTop: 5 },
   subtitle: { fontSize: 14, lineHeight: 21, marginTop: 8, marginBottom: 20 },
   list: { gap: 10 },
   card: { minHeight: 84, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 12 },
