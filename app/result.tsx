@@ -51,7 +51,7 @@ export default function ResultScreen() {
           id: String(Date.now()),
           createdAt: new Date().toISOString(),
           type: type ?? "message",
-          inputPreview: pending ? `[${pending.inputType} image]` : text.slice(0, 220),
+          inputPreview: pending ? `[${pending.inputType} image]` : redactSensitiveText(text).slice(0, 220),
           analysis: result
         });
       }
