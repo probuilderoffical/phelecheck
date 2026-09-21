@@ -64,3 +64,5 @@ console.log(JSON.stringify({
 }, null, 2));
 
 if (failures.length) process.exit(1);
+
+// Regression suite version 1.0
