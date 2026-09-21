@@ -51,8 +51,6 @@ export default function SettingsScreen(){
       <Section title="GENERAL" c={c}>
         <Row icon="language-outline" label="Language" value={preferences.language==="en"?"English":preferences.language.toUpperCase()} onPress={()=>router.push("/language")} c={c}/>
         <Row icon="sunny-outline" label="Appearance" value={preferences.appearance==="light"?"Light":preferences.appearance==="dark"?"Dark":"System"} onPress={()=>router.push("/appearance")} c={c}/>
-        <ToggleRow icon="notifications-outline" label="Notifications" value={preferences.notifications} onValueChange={(v:boolean)=>setPreference("notifications",v)} c={c}/>
-        <ToggleRow icon="alert-circle-outline" label="Safety reminders" value={preferences.safetyReminders} onValueChange={(v:boolean)=>setPreference("safetyReminders",v)} c={c}/>
       </Section>
 
       <Section title="PERSONALIZATION" c={c}>
