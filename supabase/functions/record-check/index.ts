@@ -97,8 +97,8 @@ Deno.serve(async (req: Request) => {
     };
 
     await admin.from("training_candidates").insert({
-      user_id: user.id,
-      source_check_id: check.id,
+      user_id: null,
+      source_check_id: null,
       deidentified_payload: deidentified,
       review_status: "pending"
     });
