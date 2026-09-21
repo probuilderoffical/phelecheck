@@ -138,7 +138,10 @@ async function searchUrlScanner(accountId: string, apiToken: string, domain: str
     const q = `page.domain:"${domain}"`;
     const response = await fetch(
       `https://api.cloudflare.com/client/v4/accounts/${accountId}/urlscanner/v2/search?q=${encodeURIComponent(q)}&size=5`,
-      { headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" } },
+      {
+        headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(6000),
+      },
     );
     if (!response.ok) throw new Error("scanner unavailable");
     const body = await response.json();
@@ -330,6 +333,7 @@ Treat no-record/no-malicious results as non-conclusive. Return strict JSON only.
       {
         method: "POST",
         headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(22000),
         body: JSON.stringify({
           model: MODEL_ID,
           messages: [
