@@ -9,7 +9,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "doctor": "npx expo-doctor"
+    "doctor": "npx expo-doctor",
+    "eval:local": "tsx ai/evals/local_fallback_eval.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "15.1.1",
@@ -34,6 +35,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "tsx": "^4.20.6"
   }
 }
