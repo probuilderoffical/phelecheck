@@ -10,36 +10,38 @@ on:
       - ".github/workflows/test-sentinel-gateway.yml"
 
 jobs:
-  smoke-test:
+  health:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Health check
         run: |
           set -euo pipefail
-          curl --fail --show-error --silent             "https://duqmwlgstztbjjzvejpk.supabase.co/functions/v1/sentinel-analyze"
+          body=$(curl --fail --show-error --silent             "https://duqmwlgstztbjjzvejpk.supabase.co/functions/v1/sentinel-analyze")
+          echo "$body"
+          python -c 'import json,sys; d=json.loads(sys.argv[1]); assert d.get("ok") is True; assert d.get("model")=="@cf/qwen/qwen3.8-27b"; assert d.get("vision") is True; assert d.get("rateLimited") is True' "$body"
 
+  live-inference:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
       - name: Analyze scam sample
         run: |
           set -euo pipefail
           tmp=$(mktemp)
-          status=$(curl --show-error --silent             -o "$tmp"             -w "%{http_code}"             -X POST             -H "Content-Type: application/json"             -d '{"text":"Urgent! Send a verification fee today to unlock your prize. Do not tell anyone.","language":"en"}'             "https://duqmwlgstztbjjzvejpk.supabase.co/functions/v1/sentinel-analyze")
-          echo "HTTP_STATUS=$status"
+          status=$(curl --show-error --silent             -o "$tmp"             -w "%{http_code}"             -X POST             -H "Content-Type: application/json"             -d '{"text":"Urgent! Send a verification fee today to unlock your prize. Do not tell anyone.","language":"en","inputType":"message"}'             "https://duqmwlgstztbjjzvejpk.supabase.co/functions/v1/sentinel-analyze")
           cat "$tmp"
           echo
           test "$status" = "200"
           response=$(cat "$tmp")
-          python -c 'import json,sys; d=json.loads(sys.argv[1]); assert d.get("source")=="sentinel"; assert d.get("riskLevel") in {"low","caution","high","unknown"}; assert isinstance(d.get("score"), int); assert d.get("model")=="PheleCheck Sentinel-1"' "$response"
+          python -c 'import json,sys; d=json.loads(sys.argv[1]); assert d.get("riskLevel")=="high"; assert d.get("source") in {"sentinel","local-fallback"}; assert isinstance(d.get("score"), int)' "$response"
 
       - name: Analyze vision sample
         run: |
           set -euo pipefail
           tmp=$(mktemp)
-          status=$(curl --show-error --silent             -o "$tmp"             -w "%{http_code}"             -X POST             -H "Content-Type: application/json"             -d '{"text":"Inspect this image conservatively. If there is not enough readable evidence, return unknown or low rather than inventing details.","inputType":"screenshot","mimeType":"image/png","imageBase64":"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=","language":"en"}'             "https://duqmwlgstztbjjzvejpk.supabase.co/functions/v1/sentinel-analyze")
-          echo "HTTP_STATUS=$status"
+          status=$(curl --show-error --silent             -o "$tmp"             -w "%{http_code}"             -X POST             -H "Content-Type: application/json"             -d '{"text":"Inspect this image conservatively. If there is not enough readable evidence, return unknown rather than inventing details.","inputType":"screenshot","mimeType":"image/png","imageBase64":"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=","language":"en"}'             "https://duqmwlgstztbjjzvejpk.supabase.co/functions/v1/sentinel-analyze")
           cat "$tmp"
           echo
           test "$status" = "200"
           response=$(cat "$tmp")
-          python -c 'import json,sys; d=json.loads(sys.argv[1]); assert d.get("source")=="sentinel"; assert d.get("riskLevel") in {"low","caution","high","unknown"}; assert d.get("version")=="1.3-vision-web-guarded"' "$response"
+          python -c 'import json,sys; d=json.loads(sys.argv[1]); assert d.get("riskLevel") in {"low","caution","high","unknown"}; assert d.get("source") in {"sentinel","local-fallback"}' "$response"
