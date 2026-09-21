@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { radius, spacing } from "@/theme";
 import { useAppTheme } from "@/providers/AppPreferences";
+import { savePendingInput } from "@/services/pendingCheck";
 
 function titleFor(type?: string) {
   switch (type) {
@@ -24,13 +25,18 @@ export default function CheckScreen() {
   const { scheme, colors: c } = useAppTheme();
   const [text, setText] = useState("");
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageMimeType, setImageMimeType] = useState<string | null>(null);
   const isImage = type === "screenshot" || type === "qr";
   const title = useMemo(() => titleFor(type), [type]);
 
   async function pickImage() {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.9 });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.65, base64: true });
     if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
+      const asset = result.assets[0];
+      setImageUri(asset.uri);
+      setImageBase64(asset.base64 ?? null);
+      setImageMimeType(asset.mimeType ?? "image/jpeg");
       Haptics.selectionAsync();
     }
   }
@@ -38,16 +44,36 @@ export default function CheckScreen() {
   async function takePhoto() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) return;
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.9 });
-    if (!result.canceled) setImageUri(result.assets[0].uri);
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.65, base64: true });
+    if (!result.canceled) {
+      const asset = result.assets[0];
+      setImageUri(asset.uri);
+      setImageBase64(asset.base64 ?? null);
+      setImageMimeType(asset.mimeType ?? "image/jpeg");
+    }
   }
 
-  function analyze() {
+  async function analyze() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (isImage) {
+      if (!imageBase64) return;
+      const pendingKey = await savePendingInput({
+        inputType: type ?? "screenshot",
+        imageBase64,
+        mimeType: imageMimeType ?? "image/jpeg",
+        text: type === "qr"
+          ? "Inspect this QR code. If its destination or encoded value is readable, assess that evidence too. Do not invent a destination if it cannot be read."
+          : "Inspect this screenshot for fraud, phishing, impersonation, payment pressure, suspicious links, credential requests, or other scam signals."
+      });
+      router.push({ pathname: "/result", params: { type: type ?? "screenshot", pendingKey } });
+      return;
+    }
+
     router.push({ pathname: "/result", params: { type: type ?? "message", sample: text.trim().slice(0, 4000) } });
   }
 
-  const canContinue = isImage ? !!imageUri : text.trim().length > 2;
+  const canContinue = isImage ? !!imageBase64 : text.trim().length > 2;
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top", "left", "right", "bottom"]}>
