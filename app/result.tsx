@@ -74,7 +74,7 @@ export default function ResultScreen() {
   const riskTitle = analysis.riskLevel === "high" ? "High risk" : analysis.riskLevel === "caution" ? "Caution" : analysis.riskLevel === "low" ? "Low risk signals" : "Unable to verify";
 
   return (
-    <SafeAreaView style={[styles.safe,{backgroundColor:c.background}]} edges={["top","left","right"]}>
+    <SafeAreaView style={[styles.safe,{backgroundColor:c.background}]} edges={["top","left","right","bottom"]}>
       <View style={styles.header}>
         <Pressable onPress={()=>router.back()} style={styles.headerIcon}><Ionicons name="arrow-back" size={23} color={c.text}/></Pressable>
         <Text style={[styles.headerTitle,{color:c.text}]}>Analysis</Text>
