@@ -269,6 +269,7 @@ Deno.serve(async (req: Request) => {
 
   const accountId = Deno.env.get("CLOUDFLARE_ACCOUNT_ID");
   const apiToken = Deno.env.get("CLOUDFLARE_API_TOKEN");
+  const scannerToken = Deno.env.get("CLOUDFLARE_URL_SCANNER_TOKEN") || apiToken;
 
   if (req.method === "GET") {
     return json({
@@ -278,6 +279,7 @@ Deno.serve(async (req: Request) => {
       configured: Boolean(accountId && apiToken),
       vision: true,
       webEvidence: "Cloudflare URL Scanner",
+      scannerTokenConfigured: Boolean(Deno.env.get("CLOUDFLARE_URL_SCANNER_TOKEN")),
       rateLimited: true,
     });
   }
@@ -305,7 +307,7 @@ Deno.serve(async (req: Request) => {
     if (imageBase64.length > 7_000_000) return json({ error: "Image is too large. Choose a smaller image." }, 413);
 
     const domains = domainsFromText(text);
-    const webEvidence = await Promise.all(domains.map((domain) => searchUrlScanner(accountId, apiToken, domain)));
+    const webEvidence = await Promise.all(domains.map((domain) => searchUrlScanner(accountId, scannerToken!, domain)));
     const evidenceText = webEvidence.length
       ? webEvidence.map((item) => JSON.stringify(item)).join("\n")
       : "No URL/domain was found in the text supplied to the live scanner.";
