@@ -69,7 +69,7 @@ export default function HomeScreen() {
         <View style={styles.hero}>
           <View style={[styles.statusPill, { backgroundColor: c.surfaceMuted }]}>
             <View style={[styles.statusDot, { backgroundColor: c.success }]} />
-            <Text style={[styles.statusText, { color: c.textMuted }]}>Sentinel-1 online</Text>
+            <Text style={[styles.statusText, { color: c.textMuted }]}>AI + safety fallback</Text>
           </View>
           <Text style={[styles.title, { color: c.text }]}>Verify before you act.</Text>
           <Text style={[styles.subtitle, { color: c.textMuted }]}>
