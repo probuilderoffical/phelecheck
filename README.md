@@ -6,15 +6,16 @@ PheleCheck is a mobile-first fraud-risk verification app built with React Native
 
 ## Current build
 
-- Modern light/dark UI
-- Message check flow
-- Screenshot picker
-- Link check flow
-- QR-image entry flow
-- Payment and phone entry points
-- Result/evidence layout
-- 12-language-ready configuration
-- Sentinel-1 cloud AI gateway wired through Supabase with local fallback
+- Professional responsive light/dark UI
+- Sentinel-1 cloud fraud-risk analysis with conservative local fallback
+- Live URL Scanner evidence for detected website domains
+- Screenshot vision analysis
+- Native QR decoding plus Sentinel vision fallback
+- Server-side abuse/rate limiting
+- History, reports, account sync, password reset, privacy/help/risk guidance
+- Automated app validation, gateway smoke tests, and Sentinel safety regression tests
+
+PheleCheck provides risk guidance, not a guarantee of safety or fraud.
 
 ## Run on a phone
 
