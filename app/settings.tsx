@@ -93,7 +93,7 @@ export default function SettingsScreen(){
 }
 const styles=StyleSheet.create({
  safe:{flex:1},header:{height:64,paddingHorizontal:spacing.lg,justifyContent:"center"},title:{fontSize:24,fontWeight:"800"},
- body:{paddingHorizontal:spacing.lg,paddingBottom:30},profile:{marginTop:10,borderWidth:1,borderRadius:radius.lg,padding:16,flexDirection:"row",alignItems:"center",gap:12},
+ body:{paddingHorizontal:spacing.lg,paddingBottom:48},profile:{marginTop:10,borderWidth:1,borderRadius:radius.lg,padding:16,flexDirection:"row",alignItems:"center",gap:12},
  avatar:{width:50,height:50,borderRadius:16,alignItems:"center",justifyContent:"center"},profileTitle:{fontSize:15,fontWeight:"800"},profileText:{fontSize:12,marginTop:3},
  sectionWrap:{marginTop:20},sectionLabel:{fontSize:11,fontWeight:"800",letterSpacing:1,marginLeft:4,marginBottom:8},
  section:{borderWidth:1,borderRadius:radius.lg,overflow:"hidden"},
