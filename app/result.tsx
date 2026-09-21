@@ -58,18 +58,19 @@ export default function ResultScreen() {
       if (preferences.memoryEnabled) await rememberAnalysis(result, preferences.language);
 
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
+      if (session?.user && (preferences.saveHistory || preferences.improvePheleCheck)) {
         await supabase.functions.invoke("record-check", {
           body: {
             inputType: type ?? "message",
             inputPreview: pending ? `[${pending.inputType} image]` : redactSensitiveText(text).slice(0, 220),
-            analysis: result
+            analysis: result,
+            saveHistory: preferences.saveHistory
           }
         });
       }
     })();
     return () => { active = false; };
-  }, [sample, type, pendingKey, preferences.language, preferences.memoryEnabled, preferences.saveHistory]);
+  }, [sample, type, pendingKey, preferences.language, preferences.memoryEnabled, preferences.saveHistory, preferences.improvePheleCheck]);
 
   if (loading || !analysis) {
     return (
