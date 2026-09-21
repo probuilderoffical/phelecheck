@@ -80,7 +80,7 @@ export async function analyzeWithSentinel(input: string | SentinelInput, languag
     });
 
     if (!response.ok) throw new Error(`Sentinel server returned ${response.status}`);
-    return { ...(await response.json()), source: "sentinel" } as RiskAnalysis;
+    return (await response.json()) as RiskAnalysis;
   } catch {
     if (payload.imageBase64) return unavailableVision(language);
     return analyzeLocally(fallbackText, language);
