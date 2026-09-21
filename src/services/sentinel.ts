@@ -1,5 +1,6 @@
 import { analyzeLocally, RiskAnalysis } from "@/services/riskEngine";
 import { supabase } from "@/lib/supabase";
+import { redactSensitiveText } from "@/services/redaction";
 
 let cachedEndpoint: string | null | undefined;
 let cachedAt = 0;
@@ -54,7 +55,11 @@ function unavailableVision(language: string): RiskAnalysis {
 }
 
 export async function analyzeWithSentinel(input: string | SentinelInput, language = "en"): Promise<RiskAnalysis> {
-  const payload: SentinelInput = typeof input === "string" ? { text: input } : input;
+  const rawPayload: SentinelInput = typeof input === "string" ? { text: input } : input;
+  const payload: SentinelInput = {
+    ...rawPayload,
+    text: rawPayload.text ? redactSensitiveText(rawPayload.text) : rawPayload.text
+  };
   const endpoint = await getEndpoint();
   const fallbackText = payload.text?.trim() || "";
 
