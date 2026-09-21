@@ -11,6 +11,7 @@ import { saveHistoryItem } from "@/services/history";
 import { rememberAnalysis } from "@/services/memory";
 import { supabase } from "@/lib/supabase";
 import { takePendingInput } from "@/services/pendingCheck";
+import { redactSensitiveText } from "@/services/redaction";
 
 function severityColor(severity: "info" | "warning" | "danger", c: any) {
   if (severity === "danger") return c.danger;
@@ -61,7 +62,7 @@ export default function ResultScreen() {
         await supabase.functions.invoke("record-check", {
           body: {
             inputType: type ?? "message",
-            inputPreview: pending ? `[${pending.inputType} image]` : text.slice(0, 220),
+            inputPreview: pending ? `[${pending.inputType} image]` : redactSensitiveText(text).slice(0, 220),
             analysis: result
           }
         });
