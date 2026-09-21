@@ -1,0 +1,26 @@
+name: Release Backend Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/privacy-policy/**"
+      - "supabase/functions/account-deletion-request/**"
+      - ".github/workflows/release-backend-smoke.yml"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check privacy policy page
+        run: |
+          set -euo pipefail
+          body=$(curl --fail --show-error --silent "https://duqmwlgstztbjjzvejpk.supabase.co/functions/v1/privacy-policy")
+          echo "$body" | grep -q "PheleCheck Privacy Policy"
+
+      - name: Check account deletion request page
+        run: |
+          set -euo pipefail
+          body=$(curl --fail --show-error --silent "https://duqmwlgstztbjjzvejpk.supabase.co/functions/v1/account-deletion-request")
+          echo "$body" | grep -q "Delete your PheleCheck account"
