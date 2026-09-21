@@ -14,48 +14,37 @@ const SYSTEM_PROMPT = `You are PheleCheck Sentinel-1, a fraud-risk analysis mode
 
 Assess evidence conservatively. Never label normal content as a scam just because it contains a URL, payment amount, bank name, phone number, offer, delivery update, invoice, receipt, or account-related wording.
 
-Core rules:
-1. Never claim a person, company, site, or message is definitely fraudulent or definitely safe.
-2. A URL by itself is NOT a scam signal.
-3. A payment amount by itself is NOT a scam signal.
-4. Ordinary business language, invoices, receipts, delivery updates, or login links are NOT high risk without additional suspicious evidence.
-5. Use HIGH only when there are at least two independent strong fraud indicators, OR one exceptionally strong indicator such as a request for OTP/PIN/password/CVV/seed phrase/private key.
-6. Use CAUTION when there are some suspicious signs but evidence is incomplete.
-7. Use LOW when no meaningful fraud indicators are present. LOW does not mean guaranteed safe.
-8. Use UNKNOWN when there is too little context to make a useful assessment.
-9. Do not invent reputation, ownership, domain age, blacklist status, prior reports, or facts not present in the input or supplied web evidence.
-10. Explain exactly which supplied details caused the score.
-11. Live web evidence is supporting evidence, not absolute proof. A malicious verdict is meaningful evidence. No malicious verdict or no historical record is NOT proof that a site is safe.
-12. If web evidence is unavailable, do not pretend that a web check succeeded.
+Rules:
+1. Never claim something is definitely fraudulent or definitely safe.
+2. A URL, phone number, payment amount, invoice, receipt, delivery update, or bank name alone is NOT a scam signal.
+3. HIGH requires at least two independent strong fraud indicators, except an explicit request for OTP/PIN/password/CVV/seed phrase/private key can be high by itself.
+4. CAUTION means suspicious signs exist but evidence is incomplete.
+5. LOW means no meaningful fraud indicators were found; it is not a guarantee of safety.
+6. UNKNOWN means evidence is too limited or unreadable.
+7. Never invent domain reputation, ownership, blacklist status, QR destination, company identity, or facts not supplied in the input/web evidence.
+8. Treat live web evidence as supporting evidence only. "No records" or "no malicious verdict" never proves safety.
+9. For screenshots, only cite text/details you can actually read.
+10. For QR images, report the encoded destination/value only if you can reliably read it; otherwise say it was unreadable.
+11. Tie every risk signal to concrete evidence.
 
-Look for:
-- advance-fee or prize scams
-- phishing or credential theft
-- pressure, urgency, threats, secrecy, or manipulation
-- impersonation
-- investment or guaranteed-profit claims
-- suspicious job or marketplace requests
-- unusual refund/delivery/customs fees
-- requests to move off-platform
-- requests for OTPs, PINs, passwords, CVV, private keys, or seed phrases
-- payment requests combined with other red flags
+Strong patterns include credential theft, advance fees, guaranteed profits, prize/job bait plus payment, impersonation plus pressure, secrecy, threats, moving off-platform, gift cards/crypto/wire demands, and urgent payment combined with another red flag.
 
-Scoring guide:
-0-24 = low: no meaningful fraud evidence
-25-59 = caution: some warning signs, incomplete evidence
-60-100 = high: multiple strong independent indicators or one exceptionally strong credential-theft indicator
-If uncertain between two levels, choose the less severe level and explain what would change the assessment.
+Scoring:
+0-24 low
+25-59 caution
+60-100 high
+When uncertain between two levels, choose the less severe one.
 
-Return ONLY valid JSON with:
-riskLevel: "low" | "caution" | "high" | "unknown"
-score: integer 0-100
-confidence: integer 0-100
-summary: concise evidence-based explanation
-signals: array of {title, detail, severity} where severity is "info" | "warning" | "danger"
-actions: array of practical verification/safety steps
-language: requested language code
-
-Keep every signal tied to concrete evidence from the input or supplied web evidence.`;
+Return ONLY valid JSON:
+{
+  "riskLevel":"low|caution|high|unknown",
+  "score":0-100,
+  "confidence":0-100,
+  "summary":"concise evidence-based explanation",
+  "signals":[{"title":"...","detail":"...","severity":"info|warning|danger"}],
+  "actions":["..."],
+  "language":"requested language code"
+}`;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,30 +52,60 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-function json(data: unknown, status = 200) {
+function json(data: unknown, status = 200, extra: Record<string,string> = {}) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json", ...extra },
   });
+}
+
+async function sha256(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function consumeQuota(req: Request, limit = 40) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) return { allowed: true, remaining: limit };
+
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || req.headers.get("cf-connecting-ip")
+    || "unknown";
+  const ua = (req.headers.get("user-agent") || "unknown").slice(0, 120);
+  const subject = await sha256(`sentinel|${ip}|${ua}`);
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/consume_sentinel_quota`, {
+    method: "POST",
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ p_subject_hash: subject, p_limit: limit }),
+  });
+
+  if (!response.ok) return { allowed: true, remaining: limit };
+  const rows = await response.json();
+  const row = Array.isArray(rows) ? rows[0] : rows;
+  return {
+    allowed: row?.allowed !== false,
+    remaining: Number(row?.remaining ?? 0),
+  };
 }
 
 function extractText(result: any): string {
   if (typeof result === "string") return result;
   if (typeof result?.response === "string") return result.response;
-  if (typeof result?.result?.response === "string") return result.result.response;
   const choice = result?.choices?.[0]?.message?.content ?? result?.result?.choices?.[0]?.message?.content;
   if (typeof choice === "string") return choice;
   return JSON.stringify(result ?? {});
 }
 
 function parseModelJson(text: string) {
-  const cleaned = text.trim()
-    .replace(/^\`\`\`(?:json)?\s*/i, "")
-    .replace(/\s*\`\`\`$/, "");
-
-  try {
-    return JSON.parse(cleaned);
-  } catch {
+  const cleaned = text.trim().replace(/^\`\`\`(?:json)?\s*/i, "").replace(/\s*\`\`\`$/, "");
+  try { return JSON.parse(cleaned); } catch {
     const start = cleaned.indexOf("{");
     const end = cleaned.lastIndexOf("}");
     if (start >= 0 && end > start) return JSON.parse(cleaned.slice(start, end + 1));
@@ -94,31 +113,25 @@ function parseModelJson(text: string) {
   }
 }
 
+function isPublicLookingDomain(host: string) {
+  if (!host || host.length > 253 || host === "localhost" || host.endsWith(".local")) return false;
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) return false;
+  return /^[a-z0-9.-]+\.[a-z]{2,24}$/i.test(host);
+}
+
 function domainsFromText(text: string): string[] {
   const found = new Set<string>();
-
-  const urlMatches = text.match(/https?:\/\/[^\s<>"')\]}]+/gi) ?? [];
-  for (const raw of urlMatches) {
+  for (const raw of text.match(/https?:\/\/[^\s<>"')\]}]+/gi) ?? []) {
     try {
       const host = new URL(raw).hostname.toLowerCase().replace(/^www\./, "");
       if (isPublicLookingDomain(host)) found.add(host);
     } catch {}
   }
-
-  const domainMatches = text.match(/\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}\b/gi) ?? [];
-  for (const raw of domainMatches) {
+  for (const raw of text.match(/\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}\b/gi) ?? []) {
     const host = raw.toLowerCase().replace(/^www\./, "");
     if (isPublicLookingDomain(host)) found.add(host);
   }
-
   return [...found].slice(0, 2);
-}
-
-function isPublicLookingDomain(host: string) {
-  if (!host || host.length > 253) return false;
-  if (host === "localhost" || host.endsWith(".local")) return false;
-  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) return false;
-  return /^[a-z0-9.-]+\.[a-z]{2,24}$/i.test(host);
 }
 
 async function searchUrlScanner(accountId: string, apiToken: string, domain: string): Promise<WebEvidence> {
@@ -126,68 +139,26 @@ async function searchUrlScanner(accountId: string, apiToken: string, domain: str
     const q = `page.domain:"${domain}"`;
     const response = await fetch(
       `https://api.cloudflare.com/client/v4/accounts/${accountId}/urlscanner/v2/search?q=${encodeURIComponent(q)}&size=5`,
-      {
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-          "Content-Type": "application/json",
-        },
-      },
+      { headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" } },
     );
-
-    if (!response.ok) {
-      return {
-        provider: "Cloudflare URL Scanner",
-        domain,
-        status: "unavailable",
-        scansFound: 0,
-        maliciousMatches: 0,
-        summary: "Live URL Scanner evidence was unavailable for this check.",
-      };
-    }
-
+    if (!response.ok) throw new Error("scanner unavailable");
     const body = await response.json();
-    const results = Array.isArray(body?.result?.results)
-      ? body.result.results
-      : Array.isArray(body?.results)
-      ? body.results
-      : [];
-
-    if (!results.length) {
-      return {
-        provider: "Cloudflare URL Scanner",
-        domain,
-        status: "no-records",
-        scansFound: 0,
-        maliciousMatches: 0,
-        summary: "No recent public URL Scanner record was found. This is not proof that the site is safe.",
-      };
-    }
-
+    const results = Array.isArray(body?.result?.results) ? body.result.results : Array.isArray(body?.results) ? body.results : [];
+    if (!results.length) return {
+      provider: "Cloudflare URL Scanner", domain, status: "no-records", scansFound: 0, maliciousMatches: 0,
+      summary: "No recent public URL Scanner record was found. This is not proof that the site is safe.",
+    };
     const maliciousMatches = results.filter((item: any) => item?.verdicts?.malicious === true).length;
-    const latestScanAt = results
-      .map((item: any) => item?.task?.time)
-      .filter(Boolean)
-      .sort()
-      .reverse()[0];
-
+    const latestScanAt = results.map((item: any) => item?.task?.time).filter(Boolean).sort().reverse()[0];
     return {
-      provider: "Cloudflare URL Scanner",
-      domain,
-      status: "checked",
-      scansFound: results.length,
-      maliciousMatches,
-      latestScanAt,
+      provider: "Cloudflare URL Scanner", domain, status: "checked", scansFound: results.length, maliciousMatches, latestScanAt,
       summary: maliciousMatches > 0
         ? `Cloudflare URL Scanner returned ${maliciousMatches} malicious verdict(s) among ${results.length} recent scan record(s).`
         : `Cloudflare URL Scanner returned ${results.length} recent scan record(s) with no malicious verdict in this sample. This is not a safety guarantee.`,
     };
   } catch {
     return {
-      provider: "Cloudflare URL Scanner",
-      domain,
-      status: "unavailable",
-      scansFound: 0,
-      maliciousMatches: 0,
+      provider: "Cloudflare URL Scanner", domain, status: "unavailable", scansFound: 0, maliciousMatches: 0,
       summary: "Live URL Scanner evidence was unavailable for this check.",
     };
   }
@@ -196,19 +167,20 @@ async function searchUrlScanner(accountId: string, apiToken: string, domain: str
 function normalize(data: any, language: string, webEvidence: WebEvidence[]) {
   const allowedRisk = new Set(["low", "caution", "high", "unknown"]);
   const riskLevel = allowedRisk.has(data?.riskLevel) ? data.riskLevel : "unknown";
-  const rawScore = Number(data?.score ?? 50);
-  const rawConfidence = Number(data?.confidence ?? 20);
-
+  const score = Number(data?.score);
+  const confidence = Number(data?.confidence);
   return {
     model: "PheleCheck Sentinel-1",
-    version: "1.2-web-evidence",
+    version: "1.3-vision-web-guarded",
     riskLevel,
-    score: Number.isFinite(rawScore) ? Math.max(0, Math.min(100, Math.round(rawScore))) : 50,
-    confidence: Number.isFinite(rawConfidence)
-      ? Math.max(0, Math.min(100, Math.round(rawConfidence)))
-      : 20,
+    score: Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : 50,
+    confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(100, Math.round(confidence))) : 20,
     summary: String(data?.summary ?? "Verify independently before paying.").slice(0, 1500),
-    signals: Array.isArray(data?.signals) ? data.signals.slice(0, 8) : [],
+    signals: Array.isArray(data?.signals) ? data.signals.slice(0, 8).map((s:any)=>({
+      title:String(s?.title??"Signal").slice(0,160),
+      detail:String(s?.detail??"").slice(0,800),
+      severity:["info","warning","danger"].includes(s?.severity)?s.severity:"info"
+    })) : [],
     actions: Array.isArray(data?.actions) ? data.actions.map(String).slice(0, 8) : [],
     language: String(data?.language ?? language).slice(0, 12),
     source: "sentinel",
@@ -228,51 +200,65 @@ Deno.serve(async (req: Request) => {
       service: "PheleCheck Sentinel-1 Gateway",
       model: MODEL_ID,
       configured: Boolean(accountId && apiToken),
+      vision: true,
       webEvidence: "Cloudflare URL Scanner",
+      rateLimited: true,
     });
   }
 
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!accountId || !apiToken) return json({ error: "Sentinel gateway is not configured" }, 503);
 
+  const quota = await consumeQuota(req, 40);
+  if (!quota.allowed) {
+    return json({ error: "Too many checks. Please try again later." }, 429, { "Retry-After": "3600" });
+  }
+
   try {
     const body = await req.json();
     const text = String(body?.text ?? "").trim().slice(0, 12000);
     const language = String(body?.language ?? "en").trim().slice(0, 12) || "en";
-    if (!text) return json({ error: "text is required" }, 400);
+    const inputType = String(body?.inputType ?? "message").slice(0, 24);
+    const imageBase64 = typeof body?.imageBase64 === "string" ? body.imageBase64.trim() : "";
+    const mimeType = ["image/jpeg","image/png","image/webp"].includes(body?.mimeType) ? body.mimeType : "image/jpeg";
+
+    if (!text && !imageBase64) return json({ error: "text or image is required" }, 400);
+    if (imageBase64.length > 7_000_000) return json({ error: "Image is too large. Choose a smaller image." }, 413);
 
     const domains = domainsFromText(text);
     const webEvidence = await Promise.all(domains.map((domain) => searchUrlScanner(accountId, apiToken, domain)));
-
     const evidenceText = webEvidence.length
       ? webEvidence.map((item) => JSON.stringify(item)).join("\n")
-      : "No URL/domain was found in the supplied content, so no URL Scanner lookup was performed.";
+      : "No URL/domain was found in the text supplied to the live scanner.";
 
-    const cfResponse = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${MODEL_ID}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            {
-              role: "user",
-              content: `Requested language: ${language}
+    const userInstruction = `Requested language: ${language}
+Input type: ${inputType}
 
-Content to assess:
-${text}
+Content/context:
+${text || "(image only)"}
 
 LIVE WEB THREAT EVIDENCE:
 ${evidenceText}
 
-Important: Treat "no records", "no malicious verdict", and "unavailable" as non-conclusive. Never turn absence of a bad record into a claim that a site is safe.
+Treat no-record/no-malicious results as non-conclusive. Return strict JSON only.`;
 
-Return strict JSON only.`,
-            },
+    const userContent: any = imageBase64
+      ? [
+          { type: "text", text: userInstruction },
+          { type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+        ]
+      : userInstruction;
+
+    const cfResponse = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: MODEL_ID,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: userContent },
           ],
           max_completion_tokens: 900,
           temperature: 0.05,
@@ -282,20 +268,13 @@ Return strict JSON only.`,
 
     const cloudflare = await cfResponse.json();
     if (!cfResponse.ok || cloudflare?.success === false) {
-      const message =
-        cloudflare?.errors?.[0]?.message ??
-        cloudflare?.error ??
-        `Cloudflare returned HTTP ${cfResponse.status}`;
+      const message = cloudflare?.errors?.[0]?.message ?? cloudflare?.error?.message ?? cloudflare?.error ?? `Cloudflare returned HTTP ${cfResponse.status}`;
       return json({ error: String(message).slice(0, 500) }, 502);
     }
 
-    const raw = extractText(cloudflare?.result ?? cloudflare);
-    const parsed = parseModelJson(raw);
-    return json(normalize(parsed, language, webEvidence));
+    const parsed = parseModelJson(extractText(cloudflare));
+    return json(normalize(parsed, language, webEvidence), 200, { "X-RateLimit-Remaining": String(quota.remaining) });
   } catch (error) {
-    return json(
-      { error: error instanceof Error ? error.message.slice(0, 500) : "Unknown Sentinel error" },
-      500,
-    );
+    return json({ error: error instanceof Error ? error.message.slice(0, 500) : "Unknown Sentinel error" }, 500);
   }
 });
