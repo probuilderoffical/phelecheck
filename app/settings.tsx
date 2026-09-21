@@ -36,7 +36,7 @@ export default function SettingsScreen(){
 
   async function signOut(){ if (supabase) await supabase.auth.signOut(); }
 
-  return <SafeAreaView style={[styles.safe,{backgroundColor:c.background}]} edges={["top","left","right"]}>
+  return <SafeAreaView style={[styles.safe,{backgroundColor:c.background}]} edges={["top","left","right","bottom"]}>
     <View style={styles.header}><Text style={[styles.title,{color:c.text}]}>Settings</Text></View>
     <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
       <Pressable onPress={()=>router.push(user?"/account":"/auth")} style={[styles.profile,{backgroundColor:c.surface,borderColor:c.border}]}>
@@ -62,26 +62,22 @@ export default function SettingsScreen(){
       </Section>
 
       <Section title="PRIVACY & DATA" c={c}>
-        <Row icon="cloud-outline" label="Uploaded files" value={preferences.uploadRetention==="immediate"?"Delete immediately":preferences.uploadRetention==="24h"?"Delete after 24h":"Delete after 7 days"} onPress={()=>{
-          const next=preferences.uploadRetention==="24h"?"immediate":preferences.uploadRetention==="immediate"?"7d":"24h";
-          setPreference("uploadRetention",next);
-        }} c={c}/>
+        <Row icon="cloud-outline" label="Uploaded images" value="Not stored" c={c}/>
         <Row icon="trash-outline" label="Clear local history" onPress={()=>Alert.alert("Clear history","Remove all saved checks from this device?",[{text:"Cancel",style:"cancel"},{text:"Clear",style:"destructive",onPress:()=>clearHistory()}])} c={c}/>
         <Row icon="hardware-chip-outline" label="Clear memory" onPress={()=>Alert.alert("Clear memory","Remove all locally remembered risk context?",[{text:"Cancel",style:"cancel"},{text:"Clear",style:"destructive",onPress:()=>clearMemory()}])} c={c}/>
-        <Row icon="download-outline" label="Export my data" c={c}/>
-        <Row icon="shield-checkmark-outline" label="Privacy & security" c={c}/>
+        <Row icon="shield-checkmark-outline" label="Privacy & security" onPress={()=>router.push("/privacy")} c={c}/>
       </Section>
 
       <Section title="PHELECHECK AI" c={c}>
         <Row icon="hardware-chip-outline" label="AI model" value="Sentinel-1" c={c}/>
         <Row icon="pulse-outline" label="Model status" value="Cloud AI + local fallback" c={c}/>
-        <Row icon="information-circle-outline" label="How risk scores work" c={c}/>
+        <Row icon="information-circle-outline" label="How risk scores work" onPress={()=>router.push("/risk-info")} c={c}/>
       </Section>
 
       <Section title="ACCOUNT & SUPPORT" c={c}>
-        <Row icon="help-circle-outline" label="Help center" c={c}/>
-        <Row icon="chatbubble-ellipses-outline" label="Send feedback" c={c}/>
-        <Row icon="document-text-outline" label="Terms & policies" c={c}/>
+        <Row icon="help-circle-outline" label="Help center" onPress={()=>router.push("/help")} c={c}/>
+        <Row icon="chatbubble-ellipses-outline" label="Send feedback" onPress={()=>router.push("/report")} c={c}/>
+        <Row icon="document-text-outline" label="Terms & policies" onPress={()=>router.push("/terms")} c={c}/>
         {user ? <Row icon="log-out-outline" label="Sign out" onPress={signOut} c={c} danger/> : null}
       </Section>
 
