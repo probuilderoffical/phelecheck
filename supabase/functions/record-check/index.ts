@@ -38,11 +38,11 @@ Deno.serve(async (req: Request) => {
   const inputType = String(body?.inputType ?? "message").slice(0, 40);
   const inputPreview = String(body?.inputPreview ?? "").slice(0, 220);
   const analysis = body?.analysis ?? {};
+  const saveHistory = body?.saveHistory === true;
 
   const riskLevel = ["low", "caution", "high", "unknown"].includes(analysis?.riskLevel)
     ? analysis.riskLevel
     : "unknown";
-
   const score = Number.isFinite(analysis?.score)
     ? Math.max(0, Math.min(100, analysis.score))
     : null;
@@ -50,34 +50,39 @@ Deno.serve(async (req: Request) => {
     ? Math.max(0, Math.min(100, analysis.confidence))
     : null;
 
-  const { data: check, error: insertError } = await admin
-    .from("checks")
-    .insert({
-      user_id: user.id,
-      input_type: inputType,
-      input_preview: inputPreview,
-      risk_level: riskLevel,
-      risk_score: score,
-      confidence,
-      model_name: String(analysis?.model ?? "PheleCheck Sentinel-1").slice(0, 120),
-      model_version: String(analysis?.version ?? "").slice(0, 60),
-      result: analysis
-    })
-    .select("id")
-    .single();
-
-  if (insertError) {
-    return new Response(JSON.stringify({ error: insertError.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-
   const { data: profile } = await admin
     .from("profiles")
     .select("improve_phelecheck")
     .eq("id", user.id)
     .maybeSingle();
+
+  let checkId: string | null = null;
+
+  if (saveHistory) {
+    const { data: check, error: insertError } = await admin
+      .from("checks")
+      .insert({
+        user_id: user.id,
+        input_type: inputType,
+        input_preview: inputPreview,
+        risk_level: riskLevel,
+        risk_score: score,
+        confidence,
+        model_name: String(analysis?.model ?? "PheleCheck Sentinel-1").slice(0, 120),
+        model_version: String(analysis?.version ?? "").slice(0, 60),
+        result: analysis
+      })
+      .select("id")
+      .single();
+
+    if (insertError) {
+      return new Response(JSON.stringify({ error: insertError.message }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+    checkId = check.id;
+  }
 
   if (profile?.improve_phelecheck === true) {
     const deidentified = {
@@ -104,7 +109,7 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  return new Response(JSON.stringify({ ok: true, check_id: check.id }), {
+  return new Response(JSON.stringify({ ok: true, check_id: checkId }), {
     status: 200,
     headers: { "Content-Type": "application/json" }
   });
