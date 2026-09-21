@@ -43,7 +43,7 @@ export default function SettingsScreen(){
         <View style={[styles.avatar,{backgroundColor:c.surfaceMuted}]}><Ionicons name="person-outline" size={25} color={c.text}/></View>
         <View style={{flex:1}}>
           <Text style={[styles.profileTitle,{color:c.text}]}>{user?.email ?? "Create or sign in"}</Text>
-          <Text style={[styles.profileText,{color:c.textMuted}]}>{user?"Account sync is active":"Sync history, memory and preferences"}</Text>
+          <Text style={[styles.profileText,{color:c.textMuted}]}>{user?"Account settings sync is active":"Keep account settings and saved account data linked"}</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={c.textMuted}/>
       </Pressable>
