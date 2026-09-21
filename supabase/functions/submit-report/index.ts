@@ -40,10 +40,9 @@ Deno.serve(async (req: Request) => {
     p_limit: 5
   });
 
-  if (!quotaError) {
-    const row = Array.isArray(quota) ? quota[0] : quota;
-    if (row?.allowed === false) return respond({ error: "Too many reports. Please try again later." }, 429);
-  }
+  if (quotaError) return respond({ error: "Report protection is temporarily unavailable. Please try again." }, 503);
+  const row = Array.isArray(quota) ? quota[0] : quota;
+  if (row?.allowed === false) return respond({ error: "Too many reports. Please try again later." }, 429);
 
   const body = await req.json();
   const reportText = String(body?.reportText ?? "").trim().slice(0, 4000);
