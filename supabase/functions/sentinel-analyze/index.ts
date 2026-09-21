@@ -1,7 +1,8 @@
-const MODEL_ID = "@cf/qwen/qwen3.8-27b";
+const TEXT_MODEL_ID = "@cf/qwen/qwen3-30b-a3b-fp8";
+const VISION_MODEL_ID = "@cf/qwen/qwen3.8-27b";
 
 type WebEvidence = {
-  provider: "Cloudflare URL Scanner";
+  provider: string;
   domain: string;
   status: "checked" | "no-records" | "unavailable";
   scansFound: number;
@@ -167,44 +168,87 @@ async function searchUrlScanner(accountId: string, apiToken: string, domain: str
 }
 
 function deterministicGuard(text: string) {
-  const lower = text.toLowerCase();
   const credentialRequest =
-    /\b(send|share|enter|provide|tell|bhejo|do)\b.{0,30}\b(otp|pin|password|cvv|seed phrase|private key)\b/i.test(text) ||
-    /\b(otp|pin|password|cvv|seed phrase|private key)\b.{0,30}\b(send|share|enter|provide|tell|bhejo|do)\b/i.test(text);
+    /\b(send|share|enter|provide|tell|bhejo|batao|do)\b.{0,40}\b(otp|pin|password|cvv|seed phrase|private key)\b/i.test(text) ||
+    /\b(otp|pin|password|cvv|seed phrase|private key)\b.{0,40}\b(send|share|enter|provide|tell|bhejo|batao|do)\b/i.test(text) ||
+    /(otp|pin|password|cvv).{0,40}(بھیجو|بتاؤ|شیئر)/i.test(text);
 
-  const payment = /(pay|payment|fee|wire|transfer|gift card|crypto|send money|paisa|paise|ادائیگی|پیسے)/i.test(text);
-  const pressure = /(urgent|immediately|today|now|within an hour|limited time|act now|abhi|jaldi|فوری)/i.test(text);
-  const bait = /(prize|winner|job|processing fee|verification fee|guaranteed|double your money|profit|inaam|انعام|منافع)/i.test(text);
-  const secrecy = /(do not tell|don't tell|keep.*secret|kisi ko na|کسی کو نہ)/i.test(text);
-  const blockedThreat = /(account.*blocked|account.*band|suspended|destroyed|closed)/i.test(text);
+  const payment = /(pay|payment|fee|wire|transfer|gift card|crypto|send money|paisa|paise|bhejo|ادائیگی|پیسے|पैसे भेजो)/i.test(text);
+  const pressure = /(urgent|immediately|today|now|within an hour|within the next hour|in the next hour|next hour|limited time|act now|abhi|jaldi|فوری|ابھی)/i.test(text);
+  const bait = /(prize|winner|job|processing fee|verification fee|guaranteed|double your money|profit|inaam|انعام|मुनाफा|इनाम|منافع|نوکری)/i.test(text);
+  const secrecy = /(do not tell|don't tell|keep.*secret|kisi ko na|کسی کو نہ|किसी को मत बताना|किसी को मत बताओ)/i.test(text);
+  const blockedThreat = /(account.*blocked|account.*band|account.*suspension|suspended|destroyed|closed|اکاؤنٹ.*بند)/i.test(text);
+  const giftCardCodeRequest =
+    /(gift card|gift cards).{0,50}(send|share|give|provide).{0,30}(code|codes)/i.test(text) ||
+    /(send|share|give|provide).{0,30}(gift card|gift cards).{0,30}(code|codes)/i.test(text);
 
-  const strongCombo = payment && ([pressure, bait, secrecy, blockedThreat].filter(Boolean).length >= 1);
+  const contextCount = [pressure, bait, secrecy, blockedThreat].filter(Boolean).length;
 
-  if (credentialRequest) return { high: true, score: 92, reason: "The content explicitly requests a sensitive authentication or wallet credential." };
-  if (strongCombo && ([pressure, bait, secrecy, blockedThreat].filter(Boolean).length >= 2 || bait)) {
-    return { high: true, score: 86, reason: "The content combines a payment request with multiple strong fraud-pressure signals." };
+  if (credentialRequest) {
+    return { high: true, score: 92, reason: "The content explicitly requests a sensitive authentication or wallet credential." };
+  }
+  if (giftCardCodeRequest) {
+    return { high: true, score: 90, reason: "The content asks for gift card codes, a common irreversible-payment scam pattern." };
+  }
+  if (payment && (bait || contextCount >= 2)) {
+    return { high: true, score: bait && contextCount >= 2 ? 90 : 84, reason: "The content combines a payment request with strong fraud-pressure signals." };
   }
   return { high: false, score: 0, reason: "" };
 }
 
 function safeFallback(text: string, language: string, webEvidence: WebEvidence[], reason: string) {
   const guard = deterministicGuard(text);
-  if (guard.high) {
+  const lower = text.toLowerCase();
+
+  const strongTerms = [
+    "send money", "pay now", "urgent payment", "advance fee", "processing fee",
+    "verification fee", "job fee", "wire transfer", "gift card", "crypto profit",
+    "guaranteed return", "double your money", "share otp", "send otp", "send pin",
+    "seed phrase", "private key", "paise bhejo", "paisa bhejo", "jaldi pay",
+    "فوری ادائیگی", "پیسے بھیجو", "منافع", "पैसे भेजो"
+  ];
+  const mediumTerms = [
+    "limited time", "act now", "verify account", "account blocked", "account suspended",
+    "click link", "claim prize", "winner", "prize", "refund fee", "delivery fee",
+    "customs fee", "do not tell anyone", "keep this secret", "aaj hi", "abhi",
+    "verify karo", "اکاؤنٹ بند", "انعام"
+  ];
+  const credentialTerms = ["otp", "pin", "password", "cvv", "seed phrase", "private key"];
+  const paymentTerms = ["pay", "payment", "fee", "bank", "wallet", "transfer", "money", "crypto", "gift card"];
+  const urgencyTerms = ["urgent", "immediately", "today", "now", "within 24 hours", "within an hour", "next hour", "limited time", "act now"];
+
+  const strong = strongTerms.filter((term) => lower.includes(term));
+  const medium = mediumTerms.filter((term) => lower.includes(term));
+  const credentials = credentialTerms.filter((term) => lower.includes(term));
+  const payments = paymentTerms.filter((term) => lower.includes(term));
+  const urgency = urgencyTerms.filter((term) => lower.includes(term));
+  const hasUrl = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|io|co|pk|uk|ae|in)\b)/i.test(text);
+  const hasMoney = /(\$|€|£|₹|rs\.?|pkr|usd|eur|aed|\b\d{3,}(?:[.,]\d+)?\b)/i.test(text);
+  const scannerBad = webEvidence.some((item) => item.provider === "Cloudflare URL Scanner" && item.maliciousMatches > 0);
+
+  if (guard.high || scannerBad) {
+    const detail = scannerBad
+      ? "Live URL Scanner evidence includes a malicious verdict for a detected domain."
+      : guard.reason;
     return {
       model: "PheleCheck Sentinel-1",
-      version: "1.4-fusion-guarded",
+      version: "1.5-search-routing",
       riskLevel: "high",
-      score: guard.score,
-      confidence: 84,
-      summary: guard.reason,
+      score: scannerBad ? Math.max(88, guard.score) : guard.score,
+      confidence: 86,
+      summary: detail,
       signals: [{
-        title: "Strong deterministic fraud signal",
-        detail: guard.reason,
+        title: scannerBad ? "Live threat-intelligence match" : "Strong deterministic fraud signal",
+        detail,
         severity: "danger"
+      }, {
+        title: "Cloud AI degraded",
+        detail: reason,
+        severity: "info"
       }],
       actions: [
         "Do not send money or share sensitive credentials.",
-        "Verify the sender or organization through an official channel you find independently."
+        "Verify the sender, website, or organization through an official channel you find independently."
       ],
       language,
       source: "local-fallback",
@@ -212,22 +256,85 @@ function safeFallback(text: string, language: string, webEvidence: WebEvidence[]
     };
   }
 
+  const independentStrongFactors = [
+    strong.length > 0,
+    credentials.length > 0,
+    payments.length > 0 && urgency.length > 0,
+    payments.length > 0 && medium.length > 0,
+    credentials.length > 0 && hasUrl
+  ].filter(Boolean).length;
+
+  let score = 12;
+  score += Math.min(strong.length, 3) * 18;
+  score += Math.min(medium.length, 3) * 7;
+  score += credentials.length ? 16 : 0;
+  score += payments.length && urgency.length ? 12 : 0;
+  score += hasMoney && payments.length ? 6 : 0;
+
+  if (independentStrongFactors < 2) score = Math.min(score, 54);
+  if (!strong.length && !medium.length && !credentials.length && !(payments.length && urgency.length)) {
+    score = hasUrl || hasMoney ? 18 : 12;
+  }
+  score = Math.max(5, Math.min(96, score));
+
+  const riskLevel = independentStrongFactors >= 2 && score >= 68
+    ? "high"
+    : score >= 34
+    ? "caution"
+    : "low";
+
+  const signals: Array<{title:string;detail:string;severity:"info"|"warning"|"danger"}> = [];
+  if (strong.length) signals.push({
+    title: "Direct scam-style request",
+    detail: "The content contains a direct payment, fee, credential, or guaranteed-return pattern that needs verification.",
+    severity: independentStrongFactors >= 2 ? "danger" : "warning"
+  });
+  if (urgency.length && payments.length) signals.push({
+    title: "Pressure around payment",
+    detail: "Urgency combined with a payment request is a meaningful fraud-risk signal.",
+    severity: "warning"
+  });
+  if (credentials.length) signals.push({
+    title: "Sensitive credential language",
+    detail: "The message involves OTPs, PINs, passwords, CVV codes, or wallet secrets.",
+    severity: "danger"
+  });
+  if (medium.length) signals.push({
+    title: "Verification needed",
+    detail: "The wording includes urgency, account warnings, prizes, or secrecy that should be independently checked.",
+    severity: "warning"
+  });
+  if (!signals.length) signals.push({
+    title: hasUrl ? "Link present" : "No strong known pattern found",
+    detail: hasUrl
+      ? "A link by itself is not a scam signal. Check the exact domain before entering credentials or paying."
+      : "The fallback did not find a strong known scam pattern in the supplied text.",
+    severity: "info"
+  });
+  signals.push({ title: "Cloud AI degraded", detail: reason, severity: "info" });
+
   return {
     model: "PheleCheck Sentinel-1",
-    version: "1.4-fusion-guarded",
-    riskLevel: "unknown",
-    score: 0,
-    confidence: 0,
-    summary: "PheleCheck could not produce a reliable AI assessment for this check, so it did not guess.",
-    signals: [{
-      title: "Analysis incomplete",
-      detail: reason,
-      severity: "info"
-    }],
-    actions: [
-      "Try the check again.",
-      "If money or account access is involved, verify independently through an official channel."
-    ],
+    version: "1.5-search-routing",
+    riskLevel,
+    score,
+    confidence: riskLevel === "high" ? 82 : riskLevel === "caution" ? 64 : 56,
+    summary: riskLevel === "high"
+      ? "Multiple independent fraud-risk signals are present. Do not pay or share sensitive information until independently verified."
+      : riskLevel === "caution"
+      ? "Some details deserve verification, but the available evidence is not enough for a high-risk conclusion."
+      : "No strong fraud pattern was detected in the supplied text. This does not prove the source is legitimate.",
+    signals,
+    actions: riskLevel === "low"
+      ? [
+          "Verify the sender or website through an official channel if money or account access is involved.",
+          "Do not share OTPs, PINs, passwords, CVV codes, or wallet recovery phrases."
+        ]
+      : [
+          "Pause before paying, clicking, or sharing sensitive information.",
+          "Verify the person, company, website, or payment destination independently.",
+          "Do not share OTPs, PINs, passwords, CVV codes, or wallet recovery phrases."
+        ],
     language,
     source: "local-fallback",
     webEvidence
@@ -247,7 +354,7 @@ function normalize(data: any, language: string, webEvidence: WebEvidence[], text
   }
   return {
     model: "PheleCheck Sentinel-1",
-    version: "1.4-fusion-guarded",
+    version: "1.5-search-routing",
     riskLevel,
     score: Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : 50,
     confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(100, Math.round(confidence))) : 20,
@@ -275,10 +382,10 @@ Deno.serve(async (req: Request) => {
     return json({
       ok: Boolean(accountId && apiToken),
       service: "PheleCheck Sentinel-1 Gateway",
-      model: MODEL_ID,
+      model: { text: TEXT_MODEL_ID, vision: VISION_MODEL_ID },
       configured: Boolean(accountId && apiToken),
       vision: true,
-      webEvidence: "Cloudflare URL Scanner",
+      webEvidence: ["Cloudflare URL Scanner", "Workers AI built-in web search for detected domains when available"],
       scannerTokenConfigured: Boolean(Deno.env.get("CLOUDFLARE_URL_SCANNER_TOKEN")),
       rateLimited: true,
     });
@@ -330,25 +437,39 @@ Treat no-record/no-malicious results as non-conclusive. Return strict JSON only.
         ]
       : userInstruction;
 
-    const cfResponse = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(22000),
-        body: JSON.stringify({
-          model: MODEL_ID,
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: userContent },
-          ],
-          max_completion_tokens: 650,
-          temperature: 0.05,
-        }),
-      },
-    );
+    const selectedModel = imageBase64 ? VISION_MODEL_ID : TEXT_MODEL_ID;
+    const webSearchRequested = domains.length > 0 && !imageBase64;
+    const requestBody: Record<string, unknown> = {
+      model: selectedModel,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userContent },
+      ],
+      max_completion_tokens: 650,
+      temperature: 0.05,
+    };
+    if (webSearchRequested) {
+      requestBody.web_search_options = { search_context_size: "low" };
+    }
 
-    const cloudflare = await cfResponse.json();
+    const aiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`;
+    const callAi = (body: Record<string, unknown>) => fetch(aiUrl, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(22000),
+      body: JSON.stringify(body),
+    });
+
+    let cfResponse = await callAi(requestBody);
+    let cloudflare = await cfResponse.json();
+
+    if (webSearchRequested && !cfResponse.ok && (cfResponse.status === 400 || cfResponse.status === 422)) {
+      const retryBody = { ...requestBody };
+      delete retryBody.web_search_options;
+      cfResponse = await callAi(retryBody);
+      cloudflare = await cfResponse.json();
+    }
+
     if (!cfResponse.ok || cloudflare?.success === false) {
       const message = String(
         cloudflare?.errors?.[0]?.message ??
@@ -358,7 +479,7 @@ Treat no-record/no-malicious results as non-conclusive. Return strict JSON only.
       ).slice(0, 500);
 
       const providerUnavailable =
-        /free allocation|quota|rate limit|capacity|temporarily unavailable|overloaded/i.test(message);
+        /free allocation|daily free|quota|rate limit|capacity|out of capacity|temporarily unavailable|overloaded|3036|3040/i.test(message);
 
       if (providerUnavailable) {
         const fallback = safeFallback(
@@ -367,7 +488,7 @@ Treat no-record/no-malicious results as non-conclusive. Return strict JSON only.
           webEvidence,
           imageBase64
             ? "Cloud image analysis is temporarily unavailable, so PheleCheck did not guess from the image."
-            : "Cloud AI is temporarily unavailable. PheleCheck used conservative fallback checks instead."
+            : "Cloud AI is temporarily unavailable. PheleCheck used conservative fallback analysis instead."
         );
         if (imageBase64 && !deterministicGuard(text).high) {
           fallback.riskLevel = "unknown";
@@ -384,13 +505,36 @@ Treat no-record/no-malicious results as non-conclusive. Return strict JSON only.
       return json({ error: message }, 502);
     }
 
+    const citationCandidates = [
+      ...(Array.isArray(cloudflare?.citations) ? cloudflare.citations : []),
+      ...(Array.isArray(cloudflare?.choices?.[0]?.message?.citations) ? cloudflare.choices[0].message.citations : []),
+      ...(Array.isArray(cloudflare?.choices?.[0]?.message?.annotations) ? cloudflare.choices[0].message.annotations : []),
+    ];
+    const citationUrls = [...new Set(citationCandidates.map((item: any) =>
+      typeof item === "string"
+        ? item
+        : item?.url ?? item?.url_citation?.url ?? item?.citation?.url
+    ).filter((item: unknown): item is string => typeof item === "string" && /^https?:\/\//i.test(item)))].slice(0, 5);
+
+    const searchEvidence: WebEvidence[] = citationUrls.length && domains.length
+      ? [{
+          provider: "Cloudflare Workers AI Web Search",
+          domain: domains[0],
+          status: "checked",
+          scansFound: citationUrls.length,
+          maliciousMatches: 0,
+          summary: `Live web search returned ${citationUrls.length} source citation(s) for additional context. Search results are supporting evidence, not proof of safety.`,
+        }]
+      : [];
+    const combinedWebEvidence = [...webEvidence, ...searchEvidence];
+
     const rawModel = extractText(cloudflare);
     try {
       const parsed = parseModelJson(rawModel);
-      return json(normalize(parsed, language, webEvidence, text), 200, { "X-RateLimit-Remaining": String(quota.remaining) });
+      return json(normalize(parsed, language, combinedWebEvidence, text), 200, { "X-RateLimit-Remaining": String(quota.remaining) });
     } catch {
       return json(
-        safeFallback(text, language, webEvidence, "The AI response could not be validated as structured JSON."),
+        safeFallback(text, language, combinedWebEvidence, "The AI response could not be validated as structured JSON."),
         200,
         { "X-RateLimit-Remaining": String(quota.remaining) }
       );
