@@ -23,12 +23,12 @@ const STORAGE_KEY = "phelecheck.preferences.v1";
 export const defaultPreferences: AppPreferences = {
   appearance: "light",
   language: "en",
-  improvePheleCheck: true,
+  improvePheleCheck: false,
   memoryEnabled: true,
   saveHistory: true,
   notifications: true,
   safetyReminders: true,
-  uploadRetention: "24h"
+  uploadRetention: "immediate"
 };
 
 type PreferencesContextValue = {
