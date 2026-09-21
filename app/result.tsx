@@ -10,6 +10,7 @@ import type { RiskAnalysis } from "@/services/riskEngine";
 import { saveHistoryItem } from "@/services/history";
 import { rememberAnalysis } from "@/services/memory";
 import { supabase } from "@/lib/supabase";
+import { takePendingInput } from "@/services/pendingCheck";
 
 function severityColor(severity: "info" | "warning" | "danger", c: any) {
   if (severity === "danger") return c.danger;
@@ -18,7 +19,7 @@ function severityColor(severity: "info" | "warning" | "danger", c: any) {
 }
 
 export default function ResultScreen() {
-  const { sample, type } = useLocalSearchParams<{ sample?: string; type?: string }>();
+  const { sample, type, pendingKey } = useLocalSearchParams<{ sample?: string; type?: string; pendingKey?: string }>();
   const { scheme, colors: c } = useAppTheme();
   const { preferences } = useAppPreferences();
   const [analysis, setAnalysis] = useState<RiskAnalysis | null>(null);
@@ -27,8 +28,19 @@ export default function ResultScreen() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const text = sample?.trim() || "Image or QR analysis requires the Sentinel vision server.";
-      const result = await analyzeWithSentinel(text, preferences.language);
+      const pending = pendingKey ? await takePendingInput(pendingKey) : null;
+      const text = sample?.trim() || pending?.text?.trim() || "";
+      const result = await analyzeWithSentinel(
+        pending
+          ? {
+              text,
+              inputType: pending.inputType,
+              imageBase64: pending.imageBase64,
+              mimeType: pending.mimeType
+            }
+          : text,
+        preferences.language
+      );
       if (!active) return;
       setAnalysis(result);
       setLoading(false);
@@ -38,7 +50,7 @@ export default function ResultScreen() {
           id: String(Date.now()),
           createdAt: new Date().toISOString(),
           type: type ?? "message",
-          inputPreview: text.slice(0, 220),
+          inputPreview: pending ? `[${pending.inputType} image]` : text.slice(0, 220),
           analysis: result
         });
       }
@@ -49,14 +61,14 @@ export default function ResultScreen() {
         await supabase.functions.invoke("record-check", {
           body: {
             inputType: type ?? "message",
-            inputPreview: text.slice(0, 220),
+            inputPreview: pending ? `[${pending.inputType} image]` : text.slice(0, 220),
             analysis: result
           }
         });
       }
     })();
     return () => { active = false; };
-  }, [sample, type, preferences.language, preferences.memoryEnabled, preferences.saveHistory]);
+  }, [sample, type, pendingKey, preferences.language, preferences.memoryEnabled, preferences.saveHistory]);
 
   if (loading || !analysis) {
     return (
@@ -119,6 +131,27 @@ export default function ResultScreen() {
             </View>;
           })}
         </View>
+
+        {analysis.webEvidence?.length ? <>
+          <Text style={[styles.sectionTitle,{color:c.text}]}>Live web evidence</Text>
+          <View style={[styles.card,{backgroundColor:c.surface,borderColor:c.border}]}>
+            {analysis.webEvidence.map((item,index)=>{
+              const bad=item.maliciousMatches>0;
+              return <View key={item.domain}>
+                {index>0?<View style={[styles.divider,{backgroundColor:c.border}]}/>:null}
+                <View style={styles.bullet}>
+                  <View style={[styles.bulletIcon,{backgroundColor:(bad?c.danger:c.textMuted)+"18"}]}>
+                    <Ionicons name={bad?"warning":"globe-outline"} size={18} color={bad?c.danger:c.textMuted}/>
+                  </View>
+                  <View style={{flex:1}}>
+                    <Text style={[styles.bulletTitle,{color:c.text}]}>{item.domain}</Text>
+                    <Text style={[styles.bulletText,{color:c.textMuted}]}>{item.summary}</Text>
+                  </View>
+                </View>
+              </View>;
+            })}
+          </View>
+        </> : null}
 
         <Text style={[styles.sectionTitle,{color:c.text}]}>What to do next</Text>
         <View style={[styles.card,{backgroundColor:c.surface,borderColor:c.border}]}>
