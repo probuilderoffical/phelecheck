@@ -204,7 +204,7 @@ function safeFallback(text: string, language: string, webEvidence: WebEvidence[]
         "Verify the sender or organization through an official channel you find independently."
       ],
       language,
-      source: "sentinel",
+      source: "local-fallback",
       webEvidence
     };
   }
@@ -226,7 +226,7 @@ function safeFallback(text: string, language: string, webEvidence: WebEvidence[]
       "If money or account access is involved, verify independently through an official channel."
     ],
     language,
-    source: "sentinel",
+    source: "local-fallback",
     webEvidence
   };
 }
@@ -344,8 +344,38 @@ Treat no-record/no-malicious results as non-conclusive. Return strict JSON only.
 
     const cloudflare = await cfResponse.json();
     if (!cfResponse.ok || cloudflare?.success === false) {
-      const message = cloudflare?.errors?.[0]?.message ?? cloudflare?.error?.message ?? cloudflare?.error ?? `Cloudflare returned HTTP ${cfResponse.status}`;
-      return json({ error: String(message).slice(0, 500) }, 502);
+      const message = String(
+        cloudflare?.errors?.[0]?.message ??
+        cloudflare?.error?.message ??
+        cloudflare?.error ??
+        `Cloudflare returned HTTP ${cfResponse.status}`
+      ).slice(0, 500);
+
+      const providerUnavailable =
+        /free allocation|quota|rate limit|capacity|temporarily unavailable|overloaded/i.test(message);
+
+      if (providerUnavailable) {
+        const fallback = safeFallback(
+          text,
+          language,
+          webEvidence,
+          imageBase64
+            ? "Cloud image analysis is temporarily unavailable, so PheleCheck did not guess from the image."
+            : "Cloud AI is temporarily unavailable. PheleCheck used conservative fallback checks instead."
+        );
+        if (imageBase64 && !deterministicGuard(text).high) {
+          fallback.riskLevel = "unknown";
+          fallback.score = 0;
+          fallback.confidence = 0;
+          fallback.summary = "Cloud image analysis is temporarily unavailable, so no image-risk conclusion was made.";
+        }
+        return json(fallback, 200, {
+          "X-RateLimit-Remaining": String(quota.remaining),
+          "X-PheleCheck-Degraded": "1"
+        });
+      }
+
+      return json({ error: message }, 502);
     }
 
     const rawModel = extractText(cloudflare);
