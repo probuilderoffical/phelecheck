@@ -5,26 +5,23 @@ import { Ionicons } from "@expo/vector-icons";
 import { BottomNav } from "@/components/BottomNav";
 import { radius, spacing } from "@/theme";
 import { useAppTheme } from "@/providers/AppPreferences";
-import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { Alert } from "react-native";
 
 export default function ReportScreen(){
-  const { scheme, colors: c } = useAppTheme(); const [text,setText]=useState(""); const [sending,setSending]=useState(false); const { user }=useAuth();
+  const { scheme, colors: c } = useAppTheme(); const [text,setText]=useState(""); const [sending,setSending]=useState(false);
 
   async function submitReport(){
     if(!text.trim() || sending) return;
     setSending(true);
-    const { error } = await supabase.from("scam_reports").insert({
-      user_id: user?.id ?? null,
-      report_type: "general",
-      report_text: text.trim()
+    const { data, error } = await supabase.functions.invoke("submit-report", {
+      body: { reportType: "general", reportText: text.trim() }
     });
     setSending(false);
-    if(error) Alert.alert("Could not submit", error.message);
+    if(error || data?.error) Alert.alert("Could not submit", data?.error ?? error?.message ?? "Please try again.");
     else { setText(""); Alert.alert("Report received","Thank you. Reports are reviewed before they affect reputation or training."); }
   }
-  return <SafeAreaView style={[styles.safe,{backgroundColor:c.background}]} edges={["top","left","right"]}>
+  return <SafeAreaView style={[styles.safe,{backgroundColor:c.background}]} edges={["top","left","right","bottom"]}>
     <View style={styles.header}><Text style={[styles.title,{color:c.text}]}>Report a scam</Text></View>
     <View style={styles.body}>
       <Text style={[styles.help,{color:c.textMuted}]}>Help improve PheleCheck by reporting suspicious numbers, accounts, links or messages.</Text>
