@@ -44,13 +44,13 @@ export default function CheckScreen() {
 
   function analyze() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push({ pathname: "/result", params: { type: type ?? "message", sample: text.slice(0, 220) } });
+    router.push({ pathname: "/result", params: { type: type ?? "message", sample: text.trim().slice(0, 4000) } });
   }
 
   const canContinue = isImage ? !!imageUri : text.trim().length > 2;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top", "left", "right"]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top", "left", "right", "bottom"]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.headerIcon}><Ionicons name="arrow-back" size={23} color={c.text} /></Pressable>
