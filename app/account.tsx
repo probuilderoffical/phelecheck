@@ -16,7 +16,7 @@ export default function AccountScreen(){
       <View style={styles.header}><Pressable onPress={()=>router.back()} style={styles.back}><Ionicons name="arrow-back" size={23} color={c.text}/></Pressable><Text style={[styles.headerTitle,{color:c.text}]}>Account</Text><View style={styles.back}/></View>
       <View style={styles.empty}>
         <Text style={[styles.title,{color:c.text}]}>You're not signed in</Text>
-        <Text style={[styles.subtitle,{color:c.textMuted}]}>Sign in to sync preferences, memory and history across devices.</Text>
+        <Text style={[styles.subtitle,{color:c.textMuted}]}>Sign in to keep account settings linked and manage your saved account data.</Text>
         <Pressable onPress={()=>router.replace("/auth")} style={[styles.primary,{backgroundColor:c.text}]}>
           <Text style={[styles.primaryText,{color:scheme==="dark"?"#111":"#fff"}]}>Sign in or create account</Text>
         </Pressable>
