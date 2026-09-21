@@ -72,8 +72,7 @@ function deterministicHighRisk(text: string) {
   const secrecy = /(do not tell|don't tell|keep.*secret|kisi ko na|کسی کو نہ)/i.test(text);
   const blockedThreat = /(account.*blocked|account.*band|account.*suspension|suspended|destroyed|closed|اکاؤنٹ.*بند)/i.test(text);
 
-  const contextCount = [pressure, bait, secrecy, blockedThreat].filter(Boolean).length;
-
+  const giftCardCodeRequest = /(gift card|gift cards).{0,50}(send|share|give|provide).{0,30}(code|codes)/i.test(text) ||\n    /(send|share|give|provide).{0,30}(gift card|gift cards).{0,30}(code|codes)/i.test(text);\n\n  const contextCount = [pressure, bait, secrecy, blockedThreat].filter(Boolean).length;\n
   if (credentialRequest) {
     return {
       high: true,
@@ -83,7 +82,7 @@ function deterministicHighRisk(text: string) {
     };
   }
 
-  if (payment && (bait || contextCount >= 2)) {
+  if (giftCardCodeRequest) {\n    return {\n      high: true,\n      score: 90,\n      title: "Gift card code request",\n      detail: "The content asks for gift card codes, a common irreversible-payment scam pattern."\n    };\n  }\n\n  if (payment && (bait || contextCount >= 2)) {
     return {
       high: true,
       score: bait && contextCount >= 2 ? 90 : 84,
