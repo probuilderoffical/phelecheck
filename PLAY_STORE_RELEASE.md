@@ -67,3 +67,12 @@ PheleCheck 1.2
 - Safer cloud-outage fallback behavior
 - Account export and deletion controls
 - Privacy, safety and risk-score explanations
+
+
+## Google Play personal-account launch requirement
+
+For personal developer accounts created after November 13, 2023, Google Play currently requires a closed test with at least 12 testers continuously opted in for at least 14 days before applying for production access.
+
+New personal accounts may also need to verify access to a real Android device using the Play Console mobile app.
+
+Treat the Play Console itself as the source of truth for the account-specific tasks shown on the dashboard.
