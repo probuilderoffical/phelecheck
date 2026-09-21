@@ -60,6 +60,42 @@ function containsMoney(text: string) {
   return /(\$|€|£|₹|rs\.?|pkr|usd|eur|aed|\b\d{3,}(?:[.,]\d+)?\b)/i.test(text);
 }
 
+function deterministicHighRisk(text: string) {
+  const credentialRequest =
+    /\b(send|share|enter|provide|tell|bhejo|batao|do)\b.{0,40}\b(otp|pin|password|cvv|seed phrase|private key)\b/i.test(text) ||
+    /\b(otp|pin|password|cvv|seed phrase|private key)\b.{0,40}\b(send|share|enter|provide|tell|bhejo|batao|do)\b/i.test(text) ||
+    /(otp|pin|password|cvv).{0,40}(بھیجو|بتاؤ|شیئر)/i.test(text);
+
+  const payment = /(pay|payment|fee|wire|transfer|gift card|crypto|send money|paisa|paise|bhejo|ادائیگی|پیسے)/i.test(text);
+  const pressure = /(urgent|immediately|today|now|within an hour|limited time|act now|abhi|jaldi|فوری|ابھی)/i.test(text);
+  const bait = /(prize|winner|job|processing fee|verification fee|guaranteed|double your money|profit|inaam|انعام|منافع|نوکری)/i.test(text);
+  const secrecy = /(do not tell|don't tell|keep.*secret|kisi ko na|کسی کو نہ)/i.test(text);
+  const blockedThreat = /(account.*blocked|account.*band|suspended|destroyed|closed|اکاؤنٹ.*بند)/i.test(text);
+
+  const contextCount = [pressure, bait, secrecy, blockedThreat].filter(Boolean).length;
+
+  if (credentialRequest) {
+    return {
+      high: true,
+      score: 92,
+      title: "Sensitive credential request",
+      detail: "The content asks for an OTP, PIN, password, CVV, seed phrase, or private key."
+    };
+  }
+
+  if (payment && (bait || contextCount >= 2)) {
+    return {
+      high: true,
+      score: bait && contextCount >= 2 ? 90 : 84,
+      title: "Payment request with strong scam signals",
+      detail: "The payment request is combined with pressure, bait, secrecy, threats, or guaranteed-return language."
+    };
+  }
+
+  return { high: false, score: 0, title: "", detail: "" };
+}
+
+
 export function analyzeLocally(input: string, language = "en"): RiskAnalysis {
   const text = input.trim();
   if (!text) {
@@ -77,6 +113,7 @@ export function analyzeLocally(input: string, language = "en"): RiskAnalysis {
     };
   }
 
+  const deterministic = deterministicHighRisk(text);
   const strong = hits(text, strongSignals);
   const medium = hits(text, mediumSignals);
   const credentials = hits(text, credentialTerms);
@@ -93,29 +130,39 @@ export function analyzeLocally(input: string, language = "en"): RiskAnalysis {
     credentials.length > 0 && hasUrl
   ].filter(Boolean).length;
 
-  let score = 12;
-  score += Math.min(strong.length, 3) * 18;
-  score += Math.min(medium.length, 3) * 7;
-  score += credentials.length ? 16 : 0;
-  score += payments.length && urgency.length ? 12 : 0;
-  score += hasMoney && payments.length ? 6 : 0;
+  let score = deterministic.high ? deterministic.score : 12;
+  if (!deterministic.high) {
+    score += Math.min(strong.length, 3) * 18;
+    score += Math.min(medium.length, 3) * 7;
+    score += credentials.length ? 16 : 0;
+    score += payments.length && urgency.length ? 12 : 0;
+    score += hasMoney && payments.length ? 6 : 0;
+  }
 
   // A URL, money amount, or ordinary payment language alone is not evidence of a scam.
-  if (independentStrongFactors < 2) score = Math.min(score, 54);
-  if (!strong.length && !medium.length && !credentials.length && !(payments.length && urgency.length)) {
+  if (!deterministic.high && independentStrongFactors < 2) score = Math.min(score, 54);
+  if (!deterministic.high && !strong.length && !medium.length && !credentials.length && !(payments.length && urgency.length)) {
     score = hasUrl || hasMoney ? 18 : 12;
   }
 
   score = Math.max(5, Math.min(96, score));
 
   let riskLevel: RiskLevel;
-  if (independentStrongFactors >= 2 && score >= 68) riskLevel = "high";
+  if (deterministic.high || (independentStrongFactors >= 2 && score >= 68)) riskLevel = "high";
   else if (score >= 34) riskLevel = "caution";
   else riskLevel = "low";
 
   const signals: RiskSignal[] = [];
 
-  if (strong.length) {
+  if (deterministic.high) {
+    signals.push({
+      title: deterministic.title,
+      detail: deterministic.detail,
+      severity: "danger"
+    });
+  }
+
+  if (strong.length && !deterministic.high) {
     signals.push({
       title: "Direct scam-style request",
       detail: "The content contains a direct payment, fee, credential, or guaranteed-return pattern that needs verification.",
@@ -163,7 +210,9 @@ export function analyzeLocally(input: string, language = "en"): RiskAnalysis {
     });
   }
 
-  const confidence = riskLevel === "high"
+  const confidence = deterministic.high
+    ? 86
+    : riskLevel === "high"
     ? Math.min(92, 66 + independentStrongFactors * 8)
     : riskLevel === "caution"
     ? Math.min(78, 48 + medium.length * 5 + strong.length * 6)
