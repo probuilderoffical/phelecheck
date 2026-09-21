@@ -1,4 +1,5 @@
-const TEXT_MODEL_ID = "@cf/qwen/qwen3-30b-a3b-fp8";
+const TEXT_MODEL_ID = "@cf/zai-org/glm-4.7-flash";
+const TEXT_FALLBACK_MODEL_ID = "@cf/qwen/qwen3-30b-a3b-fp8";
 const VISION_MODEL_ID = "@cf/qwen/qwen3.8-27b";
 
 type WebEvidence = {
@@ -27,8 +28,12 @@ Rules:
 9. For screenshots, only cite text/details you can actually read.
 10. For QR images, report the encoded destination/value only if you can reliably read it; otherwise say it was unreadable.
 11. Tie every risk signal to concrete evidence.
+12. Do not answer with a generic "safe" verdict. Explain what was checked, what was suspicious or reassuring, and what is still unknown.
+13. Distinguish normal personal payment requests from fraud patterns. "Pay me back" alone is not fraud.
+14. Treat off-platform marketplace moves, remote-access/support requests, loan/recovery upfront fees, romance/emergency money requests, refund-overpayment requests, and impersonation pressure as context-dependent warning signals.
+15. If live page/search evidence is present, use it as evidence but never let a clean result override strong scam language.
 
-Strong patterns include credential theft, advance fees, guaranteed profits, prize/job bait plus payment, impersonation plus pressure, secrecy, threats, moving off-platform, gift cards/crypto/wire demands, and urgent payment combined with another red flag.
+Strong patterns include credential theft, advance fees, guaranteed profits, prize/job bait plus payment, impersonation plus pressure, secrecy, threats, moving off-platform combined with payment pressure, gift cards/crypto/wire demands, remote-access requests, and urgent payment combined with another red flag.
 
 Scoring:
 0-24 low
@@ -134,6 +139,70 @@ function domainsFromText(text: string): string[] {
   return [...found].slice(0, 2);
 }
 
+
+function firstPublicUrl(text: string): string | null {
+  const direct = text.match(/https?:\/\/[^\s<>"')\]}]+/i)?.[0];
+  if (direct) {
+    try {
+      const parsed = new URL(direct);
+      const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+      if (isPublicLookingDomain(host)) return parsed.toString();
+    } catch {}
+  }
+  const domain = domainsFromText(text)[0];
+  return domain ? `https://${domain}/` : null;
+}
+
+async function fetchLivePageContext(url: string | null) {
+  if (!url) return { excerpt: "", evidence: null as WebEvidence | null };
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    if (!isPublicLookingDomain(host)) return { excerpt: "", evidence: null as WebEvidence | null };
+
+    const response = await fetch(`https://r.jina.ai/${url}`, {
+      headers: {
+        "Accept": "text/plain",
+        "User-Agent": "PheleCheck/1.0 fraud-risk verification"
+      },
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!response.ok) throw new Error(`reader HTTP ${response.status}`);
+    const raw = (await response.text()).replace(/\u0000/g, "").trim();
+    const excerpt = raw.slice(0, 6000);
+    if (!excerpt) throw new Error("empty page");
+
+    return {
+      excerpt,
+      evidence: {
+        provider: "Jina Reader live page",
+        domain: host,
+        status: "checked" as const,
+        scansFound: 1,
+        maliciousMatches: 0,
+        summary: "Live page content was fetched for analysis. Page content is context evidence, not a safety or reputation verdict.",
+      }
+    };
+  } catch {
+    try {
+      const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+      return {
+        excerpt: "",
+        evidence: {
+          provider: "Jina Reader live page",
+          domain: host,
+          status: "unavailable" as const,
+          scansFound: 0,
+          maliciousMatches: 0,
+          summary: "Live page content could not be fetched for this check.",
+        }
+      };
+    } catch {
+      return { excerpt: "", evidence: null as WebEvidence | null };
+    }
+  }
+}
+
 async function searchUrlScanner(accountId: string, apiToken: string, domain: string): Promise<WebEvidence> {
   try {
     const q = `page.domain:"${domain}"`;
@@ -232,7 +301,7 @@ function safeFallback(text: string, language: string, webEvidence: WebEvidence[]
       : guard.reason;
     return {
       model: "PheleCheck Sentinel-1",
-      version: "1.5-search-routing",
+      version: "1.6-resilient-fusion",
       riskLevel: "high",
       score: scannerBad ? Math.max(88, guard.score) : guard.score,
       confidence: 86,
@@ -315,7 +384,7 @@ function safeFallback(text: string, language: string, webEvidence: WebEvidence[]
 
   return {
     model: "PheleCheck Sentinel-1",
-    version: "1.5-search-routing",
+    version: "1.6-resilient-fusion",
     riskLevel,
     score,
     confidence: riskLevel === "high" ? 82 : riskLevel === "caution" ? 64 : 56,
@@ -354,7 +423,7 @@ function normalize(data: any, language: string, webEvidence: WebEvidence[], text
   }
   return {
     model: "PheleCheck Sentinel-1",
-    version: "1.5-search-routing",
+    version: "1.6-resilient-fusion",
     riskLevel,
     score: Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : 50,
     confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(100, Math.round(confidence))) : 20,
@@ -382,10 +451,10 @@ Deno.serve(async (req: Request) => {
     return json({
       ok: Boolean(accountId && apiToken),
       service: "PheleCheck Sentinel-1 Gateway",
-      model: { text: TEXT_MODEL_ID, vision: VISION_MODEL_ID },
+      model: { text: TEXT_MODEL_ID, textFallback: TEXT_FALLBACK_MODEL_ID, vision: VISION_MODEL_ID },
       configured: Boolean(accountId && apiToken),
       vision: true,
-      webEvidence: ["Cloudflare URL Scanner", "Workers AI built-in web search for detected domains when available"],
+      webEvidence: ["Cloudflare URL Scanner", "Jina Reader live page", "Workers AI built-in web search for detected domains when available"],
       scannerTokenConfigured: Boolean(Deno.env.get("CLOUDFLARE_URL_SCANNER_TOKEN")),
       rateLimited: true,
     });
@@ -414,10 +483,20 @@ Deno.serve(async (req: Request) => {
     if (imageBase64.length > 7_000_000) return json({ error: "Image is too large. Choose a smaller image." }, 413);
 
     const domains = domainsFromText(text);
-    const webEvidence = await Promise.all(domains.map((domain) => searchUrlScanner(accountId, scannerToken!, domain)));
+    const [scannerEvidence, pageContext] = await Promise.all([
+      Promise.all(domains.map((domain) => searchUrlScanner(accountId, scannerToken!, domain))),
+      fetchLivePageContext(firstPublicUrl(text)),
+    ]);
+    const webEvidence: WebEvidence[] = [
+      ...scannerEvidence,
+      ...(pageContext.evidence ? [pageContext.evidence] : []),
+    ];
     const evidenceText = webEvidence.length
       ? webEvidence.map((item) => JSON.stringify(item)).join("\n")
-      : "No URL/domain was found in the text supplied to the live scanner.";
+      : "No URL/domain was found in the supplied text.";
+    const pageText = pageContext.excerpt
+      ? `\n\nLIVE PAGE CONTENT (truncated):\n${pageContext.excerpt}\n\nDo not treat page availability as proof of legitimacy.`
+      : "";
 
     const userInstruction = `Requested language: ${language}
 Input type: ${inputType}
@@ -425,10 +504,10 @@ Input type: ${inputType}
 Content/context:
 ${text || "(image only)"}
 
-LIVE WEB THREAT EVIDENCE:
-${evidenceText}
+LIVE WEB / THREAT EVIDENCE:
+${evidenceText}${pageText}
 
-Treat no-record/no-malicious results as non-conclusive. Return strict JSON only.`;
+Treat no-record/no-malicious results as non-conclusive. Analyze the user's actual content, not just keywords. Return strict JSON only.`;
 
     const userContent: any = imageBase64
       ? [
@@ -439,35 +518,40 @@ Treat no-record/no-malicious results as non-conclusive. Return strict JSON only.
 
     const selectedModel = imageBase64 ? VISION_MODEL_ID : TEXT_MODEL_ID;
     const webSearchRequested = domains.length > 0 && !imageBase64;
-    const requestBody: Record<string, unknown> = {
-      model: selectedModel,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userContent },
-      ],
-      max_completion_tokens: 650,
-      temperature: 0.05,
-    };
-    if (webSearchRequested) {
-      requestBody.web_search_options = { search_context_size: "low" };
-    }
-
     const aiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`;
-    const callAi = (body: Record<string, unknown>) => fetch(aiUrl, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(22000),
-      body: JSON.stringify(body),
-    });
 
-    let cfResponse = await callAi(requestBody);
-    let cloudflare = await cfResponse.json();
+    const callChat = async (model: string, allowWebSearch: boolean) => {
+      const requestBody: Record<string, unknown> = {
+        model,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userContent },
+        ],
+        max_completion_tokens: imageBase64 ? 650 : 420,
+        temperature: 0.05,
+      };
+      if (allowWebSearch) {
+        requestBody.web_search_options = { search_context_size: "low" };
+      }
+      const response = await fetch(aiUrl, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(imageBase64 ? 26000 : 18000),
+        body: JSON.stringify(requestBody),
+      });
+      const body = await response.json().catch(() => ({}));
+      return { response, body };
+    };
 
-    if (webSearchRequested && !cfResponse.ok && (cfResponse.status === 400 || cfResponse.status === 422)) {
-      const retryBody = { ...requestBody };
-      delete retryBody.web_search_options;
-      cfResponse = await callAi(retryBody);
-      cloudflare = await cfResponse.json();
+    let attempt = await callChat(selectedModel, webSearchRequested);
+    let cfResponse = attempt.response;
+    let cloudflare = attempt.body;
+
+    // Text gets a second independent hosted model attempt before local fallback.
+    if (!imageBase64 && (!cfResponse.ok || cloudflare?.success === false)) {
+      attempt = await callChat(TEXT_FALLBACK_MODEL_ID, false);
+      cfResponse = attempt.response;
+      cloudflare = attempt.body;
     }
 
     if (!cfResponse.ok || cloudflare?.success === false) {
@@ -478,31 +562,26 @@ Treat no-record/no-malicious results as non-conclusive. Return strict JSON only.
         `Cloudflare returned HTTP ${cfResponse.status}`
       ).slice(0, 500);
 
-      const providerUnavailable =
-        /free allocation|daily free|quota|rate limit|capacity|out of capacity|temporarily unavailable|overloaded|3036|3040/i.test(message);
+      const fallback = safeFallback(
+        text,
+        language,
+        webEvidence,
+        imageBase64
+          ? "Cloud image analysis is temporarily unavailable, so PheleCheck did not guess from the image."
+          : `Hosted AI was unavailable (${message}). PheleCheck used its conservative fallback analysis instead.`
+      );
 
-      if (providerUnavailable) {
-        const fallback = safeFallback(
-          text,
-          language,
-          webEvidence,
-          imageBase64
-            ? "Cloud image analysis is temporarily unavailable, so PheleCheck did not guess from the image."
-            : "Cloud AI is temporarily unavailable. PheleCheck used conservative fallback analysis instead."
-        );
-        if (imageBase64 && !deterministicGuard(text).high) {
-          fallback.riskLevel = "unknown";
-          fallback.score = 0;
-          fallback.confidence = 0;
-          fallback.summary = "Cloud image analysis is temporarily unavailable, so no image-risk conclusion was made.";
-        }
-        return json(fallback, 200, {
-          "X-RateLimit-Remaining": String(quota.remaining),
-          "X-PheleCheck-Degraded": "1"
-        });
+      if (imageBase64 && !deterministicGuard(text).high) {
+        fallback.riskLevel = "unknown";
+        fallback.score = 0;
+        fallback.confidence = 0;
+        fallback.summary = "Cloud image analysis is temporarily unavailable, so no image-risk conclusion was made.";
       }
 
-      return json({ error: message }, 502);
+      return json(fallback, 200, {
+        "X-RateLimit-Remaining": String(quota.remaining),
+        "X-PheleCheck-Degraded": "1"
+      });
     }
 
     const citationCandidates = [
